@@ -566,7 +566,21 @@
         if (f === 'scene') {
           const sel = document.createElement('select'); sel.className = 'fb-scene';
           sel.innerHTML = '<option value="">(any)</option>';
-          (window._scenes || []).forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; if (fb.scene === s) o.selected = true; sel.appendChild(o); });
+          const scenes = window._scenes || [];
+          // Try to get a default scene from the first action of the button
+          const currentActions = ($actionsList.querySelectorAll('.rule-row').length > 0)
+            ? Array.from($actionsList.querySelectorAll('.rule-row')).map(r => {
+                const t = r.querySelector('.act-type').value;
+                const sceneField = r.querySelector('.act-scene');
+                return { type: t, scene: sceneField ? sceneField.value : '' };
+              })
+            : [];
+          const defaultScene = fb.scene || (currentActions[0] && currentActions[0].scene) || '';
+          scenes.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; if (defaultScene === s) o.selected = true; sel.appendChild(o); });
+          // If defaultScene is set but not in the list (scenes haven't loaded yet), add it as a custom option
+          if (defaultScene && !scenes.includes(defaultScene)) {
+            const o = document.createElement('option'); o.value = defaultScene; o.textContent = defaultScene; o.selected = true; sel.appendChild(o);
+          }
           sel.addEventListener('change', liveSave); body.appendChild(sel);
         } else if (f === 'source') {
           const inp = document.createElement('input'); inp.type = 'text'; inp.className = 'fb-source'; inp.placeholder = 'Source name'; inp.value = fb.source || '';
@@ -639,12 +653,19 @@
       const type = row.querySelector('.fb-type').value;
       const fb = { type };
       const sceneEl = row.querySelector('.fb-scene');
-      if (sceneEl) fb.scene = sceneEl.value;
+      if (sceneEl && sceneEl.value) fb.scene = sceneEl.value;
       const sourceEl = row.querySelector('.fb-source');
-      if (sourceEl) fb.source = sourceEl.value;
-      row.querySelectorAll('.rule-colors .color-swatch.selected, .rule-row-body .color-swatch.selected').forEach(sw => {
-        fb[sw.dataset.field || 'activeColor'] = sw.dataset.color || 'green';
+      if (sourceEl && sourceEl.value) fb.source = sourceEl.value;
+      // Gather color fields from swatches (check both rule-colors and rule-row-body)
+      const swatches = row.querySelectorAll('.color-swatch.selected');
+      let hasColor = false;
+      swatches.forEach(sw => {
+        if (sw.dataset.field && sw.dataset.color) {
+          fb[sw.dataset.field] = sw.dataset.color;
+          hasColor = true;
+        }
       });
+      if (!hasColor) fb.activeColor = 'green';
       feedbacks.push(fb);
     });
 
@@ -657,6 +678,7 @@
     };
 
     saving = true;
+    console.log('[Admin Save]', JSON.stringify(cfg).substring(0, 500));
     db.ref(`buttons/${currentPage}/${currentKey}`).set(cfg).then(() => { saving = false; }).catch(() => { saving = false; });
   }
 

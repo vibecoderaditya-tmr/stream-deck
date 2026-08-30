@@ -141,11 +141,13 @@
 
     db.ref('buttons').on('value', snap => {
       buttons = snap.val() || {};
+      console.log('[Buttons]', JSON.stringify(buttons).substring(0, 500));
       renderGrid();
     });
 
     db.ref('status').on('value', snap => {
       status = snap.val() || {};
+      console.log('[Status]', { previewScene: status.previewScene, programScene: status.programScene, preview: status.preview });
       updateHighlights();
     });
 
@@ -274,6 +276,8 @@
     return String(name).replace(/[.$#\[\]/]/g, '_');
   }
 
+  function norm(s) { return (s || '').trim().toLowerCase(); }
+
   function updateHighlights() {
     const tiles = $grid.querySelectorAll('.dk-tile.dk-assigned');
     tiles.forEach(div => {
@@ -293,16 +297,18 @@
 
         if (t === 'scene_in_program') {
           const s = fb.scene || (actions[0] && actions[0].scene) || '';
-          if (s && s === (status.programScene || status.scene || '')) match = true;
+          const target = status.programScene || status.scene || '';
+          if (s && norm(s) === norm(target)) match = true;
         } else if (t === 'scene_in_preview') {
           const s = fb.scene || (actions[0] && actions[0].scene) || '';
-          if (s && s === (status.previewScene || status.preview || '')) match = true;
+          const target = status.previewScene || status.preview || '';
+          if (s && norm(s) === norm(target)) match = true;
         } else if (t === 'scene_in_preview_program') {
           const s = fb.scene || (actions[0] && actions[0].scene) || '';
           const prog = status.programScene || status.scene || '';
           const prev = status.previewScene || status.preview || '';
-          if (s && s === prog) { match = true; color = fb.activeColor || 'red'; }
-          else if (s && s === prev) { match = true; color = fb.activeColor2 || 'orange'; }
+          if (s && norm(s) === norm(prog)) { match = true; color = fb.activeColor || 'red'; }
+          else if (s && norm(s) === norm(prev)) { match = true; color = fb.activeColor2 || 'orange'; }
         } else if (t === 'transition_in_progress') {
           if (status.transitionInProgress) { match = true; color = fb.activeColor || 'yellow'; }
         } else if (t === 'source_visible_in_program') {
