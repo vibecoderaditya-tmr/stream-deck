@@ -287,11 +287,6 @@ body {
 
 .deck-btn.admin-mode .edit-overlay { display: block; }
 .deck-btn.admin-mode { cursor: pointer; }
-.deck-btn.is-selected {
-  outline: 3px solid var(--accent-cyan) !important;
-  outline-offset: -3px;
-  z-index: 1;
-}
 
 /* ---- Admin Side Panel ---- */
 .admin-panel {
@@ -406,6 +401,28 @@ body {
 
 /* ---- Utility ---- */
 .hidden { display: none !important; }
+
+/* ---- Context Menu ---- */
+.ctx-menu {
+  position: fixed;
+  z-index: 200;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 150px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+}
+.ctx-item {
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.ctx-item:hover { background: var(--bg-button); }
+.ctx-danger { color: var(--accent-red); }
+.ctx-danger:hover { background: rgba(255,23,68,0.15); }
+.ctx-sep { height: 1px; background: var(--border); margin: 4px 0; }
 
 /* ---- Responsive ---- */
 @media (max-width: 800px) {

@@ -62,8 +62,7 @@
   let gridCols    = 8;
   let clipboard   = null;
   let cutSource   = null;
-  let selectedKey = null;
-  let dragSrcKey  = null;
+  let ctxTarget   = null;
 
   // ---- Auth ----
   pinSubmit.addEventListener('click', doAuth);
@@ -199,163 +198,69 @@
           btn.appendChild(plus);
         }
 
-        let clickCount = 0;
-        btn.addEventListener('mousedown', (e) => {
-          if (e.button !== 0) return;
-          clickCount++;
-          if (clickCount === 1) {
-            setTimeout(() => {
-              if (clickCount === 1) selectButton(r, c);
-              clickCount = 0;
-            }, 250);
-          }
-        });
-        btn.addEventListener('dblclick', (e) => {
-          clickCount = 0;
-          selectButton(r, c);
-          openEditor(r, c);
-        });
-        btn.draggable = true;
-        btn.addEventListener('dragstart', (e) => {
-          dragSrcKey = r + '_' + c;
-          btn.classList.add('dragging');
-          e.dataTransfer.effectAllowed = 'move';
-        });
-        btn.addEventListener('dragend', () => {
-          btn.classList.remove('dragging');
-          dragSrcKey = null;
-          buttonGrid.querySelectorAll('.deck-btn').forEach(b => b.style.borderColor = '');
-        });
-        btn.addEventListener('dragover', (e) => {
+        btn.addEventListener('click', () => openEditor(r, c));
+        btn.addEventListener('contextmenu', (e) => {
           e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-          btn.style.borderColor = 'var(--accent-cyan)';
-        });
-        btn.addEventListener('dragleave', () => {
-          btn.style.borderColor = '';
-        });
-        btn.addEventListener('drop', (e) => {
-          e.preventDefault();
-          btn.style.borderColor = '';
-          if (!dragSrcKey) return;
-          const destKey = r + '_' + c;
-          if (dragSrcKey === destKey) return;
-          const srcCfg = ((buttons[currentPage] || {})[dragSrcKey]) || null;
-          const destCfg = ((buttons[currentPage] || {})[destKey]) || null;
-          if (srcCfg && srcCfg.label) {
-            if (destCfg && destCfg.label) {
-              db.ref('buttons/' + currentPage + '/' + destKey).set(srcCfg);
-              db.ref('buttons/' + currentPage + '/' + dragSrcKey).set(destCfg);
-            } else {
-              db.ref('buttons/' + currentPage + '/' + destKey).set(srcCfg);
-              db.ref('buttons/' + currentPage + '/' + dragSrcKey).remove();
-            }
-          }
-          dragSrcKey = null;
+          ctxTarget = { row: r, col: c };
+          showCtxMenu(e.pageX, e.pageY, r, c);
         });
         buttonGrid.appendChild(btn);
       }
     }
   }
 
-  // ---- Button Selection ----
-  function selectButton(row, col) {
+  // ---- Context Menu ----
+  const ctxMenu = document.getElementById('ctx-menu');
+
+  function showCtxMenu(x, y, row, col) {
     const key = row + '_' + col;
-    selectedKey = key;
-    buttonGrid.querySelectorAll('.deck-btn').forEach(b => b.classList.remove('is-selected'));
-    const idx = row * gridCols + col;
-    const btn = buttonGrid.children[idx];
-    if (btn) btn.classList.add('is-selected');
+    const cfg = ((buttons[currentPage] || {})[key]) || null;
+    const hasBtn = cfg && cfg.label;
+
+    ctxMenu.querySelector('[data-action="copy"]').style.display = hasBtn ? '' : 'none';
+    ctxMenu.querySelector('[data-action="cut"]').style.display = hasBtn ? '' : 'none';
+    ctxMenu.querySelector('[data-action="paste"]').style.display = (clipboard && !hasBtn) ? '' : 'none';
+    ctxMenu.querySelector('[data-action="delete"]').style.display = hasBtn ? '' : 'none';
+
+    ctxMenu.style.left = x + 'px';
+    ctxMenu.style.top = y + 'px';
+    ctxMenu.classList.remove('hidden');
   }
 
-  function deselectAll() {
-    selectedKey = null;
-    buttonGrid.querySelectorAll('.deck-btn').forEach(b => b.classList.remove('is-selected'));
-  }
+  document.addEventListener('click', () => ctxMenu.classList.add('hidden'));
 
-  function getButtonCfg(key) {
-    return ((buttons[currentPage] || {})[key]) || null;
-  }
+  ctxMenu.querySelectorAll('.ctx-item').forEach((item) => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!ctxTarget) return;
+      const key = ctxTarget.row + '_' + ctxTarget.col;
+      const action = item.dataset.action;
 
-  function findNextEmpty() {
-    const pageButtons = buttons[currentPage] || {};
-    for (let r = 0; r < gridRows; r++) {
-      for (let c = 0; c < gridCols; c++) {
-        const k = r + '_' + c;
-        if (!pageButtons[k] || !pageButtons[k].label) return k;
-      }
-    }
-    return null;
-  }
-
-  function flashButton(key, color) {
-    const [r, c] = key.split('_').map(Number);
-    const idx = r * gridCols + c;
-    const btn = buttonGrid.children[idx];
-    if (!btn) return;
-    btn.classList.add('is-selected');
-    btn.style.outlineColor = color || 'var(--accent-cyan)';
-    setTimeout(() => {
-      btn.style.outlineColor = '';
-    }, 600);
-  }
-
-  // ---- Keyboard Shortcuts ----
-  document.addEventListener('keydown', (e) => {
-    if (authScreen.style.display !== 'none') return;
-
-    const key = e.key.toLowerCase();
-
-    if (key === 'escape') {
-      if (adminPanel.classList.contains('open')) {
-        closeEditor();
-      } else {
-        deselectAll();
-      }
-      return;
-    }
-
-    if (adminPanel.classList.contains('open')) return;
-
-    if (key === 'c' && (e.ctrlKey || e.metaKey) && selectedKey) {
-      e.preventDefault();
-      const cfg = getButtonCfg(selectedKey);
-      if (cfg && cfg.label) {
-        clipboard = JSON.parse(JSON.stringify(cfg));
-        cutSource = null;
-        flashButton(selectedKey, 'var(--accent-green)');
-      }
-    }
-
-    if (key === 'x' && (e.ctrlKey || e.metaKey) && selectedKey) {
-      e.preventDefault();
-      const cfg = getButtonCfg(selectedKey);
-      if (cfg && cfg.label) {
-        clipboard = JSON.parse(JSON.stringify(cfg));
-        cutSource = { page: currentPage, key: selectedKey };
-        flashButton(selectedKey, 'var(--accent-yellow)');
-      }
-    }
-
-    if (key === 'v' && (e.ctrlKey || e.metaKey) && selectedKey && clipboard) {
-      e.preventDefault();
-      db.ref('buttons/' + currentPage + '/' + selectedKey).set(JSON.parse(JSON.stringify(clipboard)));
-      if (cutSource && cutSource.page === currentPage) {
-        db.ref('buttons/' + cutSource.page + '/' + cutSource.key).remove();
+      if (action === 'copy') {
+        clipboard = JSON.parse(JSON.stringify(((buttons[currentPage] || {})[key]) || null));
         cutSource = null;
       }
-      clipboard = null;
-      flashButton(selectedKey, 'var(--accent-cyan)');
-    }
 
-    if (key === 'delete' && selectedKey) {
-      e.preventDefault();
-      const cfg = getButtonCfg(selectedKey);
-      if (cfg && cfg.label) {
-        db.ref('buttons/' + currentPage + '/' + selectedKey).remove();
-        deselectAll();
+      if (action === 'cut') {
+        clipboard = JSON.parse(JSON.stringify(((buttons[currentPage] || {})[key]) || null));
+        cutSource = { page: currentPage, key: key };
       }
-    }
+
+      if (action === 'paste' && clipboard) {
+        db.ref('buttons/' + currentPage + '/' + key).set(JSON.parse(JSON.stringify(clipboard)));
+        if (cutSource) {
+          db.ref('buttons/' + cutSource.page + '/' + cutSource.key).remove();
+          cutSource = null;
+        }
+        clipboard = null;
+      }
+
+      if (action === 'delete') {
+        db.ref('buttons/' + currentPage + '/' + key).remove();
+      }
+
+      ctxMenu.classList.add('hidden');
+    });
   });
 
   // ---- Color Grid ----
