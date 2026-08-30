@@ -141,13 +141,19 @@
 
     db.ref('buttons').on('value', snap => {
       buttons = snap.val() || {};
-      console.log('[Buttons]', JSON.stringify(buttons).substring(0, 500));
+      // Normalize old format → new format
+      Object.keys(buttons).forEach(pageId => {
+        const page = buttons[pageId];
+        if (!page || typeof page !== 'object') return;
+        Object.keys(page).forEach(key => {
+          page[key] = normalizeButton(page[key]);
+        });
+      });
       renderGrid();
     });
 
     db.ref('status').on('value', snap => {
       status = snap.val() || {};
-      console.log('[Status]', { previewScene: status.previewScene, programScene: status.programScene, preview: status.preview });
       updateHighlights();
     });
 
@@ -277,6 +283,68 @@
   }
 
   function norm(s) { return (s || '').trim().toLowerCase(); }
+
+  // Convert old-format button data to new format
+  function normalizeButton(btn) {
+    if (!btn || typeof btn !== 'object') return btn;
+    // Already new format?
+    if (Array.isArray(btn.actions)) return btn;
+
+    const out = { ...btn };
+
+    // Old: action (string) → New: actions (array)
+    if (out.action && !Array.isArray(out.actions)) {
+      const sceneName = out.scene || out.value || '';
+      const act = { type: out.action };
+      // Map action aliases
+      const actionMap = {
+        'SetCurrentPreviewScene': 'set_preview_scene',
+        'SetCurrentProgramScene': 'set_scene',
+        'SetScene': 'set_scene',
+        'Transition': 'transition',
+        'ToggleStartStreaming': 'toggle_stream',
+        'ToggleStartRecording': 'toggle_record',
+        'ToggleVirtualCam': 'toggle_virtual_cam',
+        'SaveReplayBuffer': 'save_replay',
+        'ToggleStudioMode': 'studio_mode',
+      };
+      act.type = actionMap[out.action] || out.action;
+      if (sceneName) act.scene = sceneName;
+      if (out.source) act.source = out.source;
+      if (out.text) act.text = out.text;
+      out.actions = [act];
+      delete out.action;
+    }
+
+    // Old: feedback (object with rules[]) → New: feedbacks (array)
+    if (out.feedback && !Array.isArray(out.feedbacks)) {
+      const fb = out.feedback;
+      const rules = fb.rules || [];
+      out.feedbacks = rules.map(rule => {
+        const sceneName = out.scene || out.value || '';
+        const ruleScene = sceneName;
+        let type = 'scene_in_program';
+        if (rule.field === 'preview' || rule.field === 'previewScene') type = 'scene_in_preview';
+        else if (rule.field === 'scene' || rule.field === 'programScene') type = 'scene_in_program';
+        else if (rule.field === 'transition') type = 'transition_in_progress';
+        else if (rule.op === 'contains') type = 'source_visible_in_program';
+
+        return {
+          type,
+          scene: ruleScene,
+          source: out.source || '',
+          activeColor: rule.trueColor || 'green',
+        };
+      });
+      delete out.feedback;
+    }
+
+    // Ensure actions array exists
+    if (!Array.isArray(out.actions)) out.actions = [];
+    if (!Array.isArray(out.feedbacks)) out.feedbacks = [];
+
+    return out;
+  }
 
   function updateHighlights() {
     const tiles = $grid.querySelectorAll('.dk-tile.dk-assigned');
