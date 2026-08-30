@@ -40,7 +40,13 @@
     <div class="admin-topbar">
       <a href="index.html" class="back-link">&larr; Deck</a>
       <h1>Admin / Editor</h1>
-      <span style="margin-left:auto;font-size:12px;color:var(--text-secondary);">Click a button to edit it</span>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;">
+        <span style="color:var(--text-secondary);">Grid:</span>
+        <input type="number" id="grid-rows" min="1" max="20" value="4" style="width:48px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:12px;text-align:center;">
+        <span style="color:var(--text-secondary);">x</span>
+        <input type="number" id="grid-cols" min="1" max="20" value="8" style="width:48px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:12px;text-align:center;">
+        <button id="grid-apply" style="padding:4px 10px;border:1px solid var(--accent-cyan);border-radius:4px;background:transparent;color:var(--accent-cyan);cursor:pointer;font-size:12px;">Apply</button>
+      </div>
     </div>
 
     <!-- Status Strip -->

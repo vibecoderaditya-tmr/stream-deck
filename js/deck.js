@@ -34,6 +34,8 @@
   let buttons     = {};  // { pageId: { "row_col": { ... } } }
   let status      = {};
   let totalPages  = 1;
+  let gridRows    = 4;
+  let gridCols    = 8;
 
   function safeKey(name) {
     return String(name).replace(/\./g,'_').replace(/\$/g,'_').replace(/#/g,'_').replace(/\[/g,'_').replace(/\]/g,'_').replace(/\//g,'_');
@@ -69,6 +71,16 @@
 
   // ---- Listeners ----
   function startListeners() {
+    // Listen for grid settings
+    db.ref('settings/grid').on('value', (snap) => {
+      const g = snap.val();
+      if (g) {
+        gridRows = g.rows || 4;
+        gridCols = g.cols || 8;
+      }
+      renderGrid();
+    });
+
     // Listen for buttons config
     db.ref('buttons').on('value', (snap) => {
       buttons = snap.val() || {};
@@ -168,11 +180,10 @@
   function renderGrid() {
     buttonGrid.innerHTML = '';
     const pageButtons = buttons[currentPage] || {};
-    const cols = 8;
-    buttonGrid.style.setProperty('--cols', cols);
+    buttonGrid.style.setProperty('--cols', gridCols);
 
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < gridRows; r++) {
+      for (let c = 0; c < gridCols; c++) {
         const key = r + '_' + c;
         const cfg = pageButtons[key];
         if (cfg && cfg.label) {

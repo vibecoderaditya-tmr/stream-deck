@@ -58,6 +58,8 @@
   let buttons     = {};
   let status      = {};
   let editingKey  = null;
+  let gridRows    = 4;
+  let gridCols    = 8;
 
   // ---- Auth ----
   pinSubmit.addEventListener('click', doAuth);
@@ -74,8 +76,28 @@
     startListeners();
   }
 
+  // ---- Grid Settings ----
+  document.getElementById('grid-apply').addEventListener('click', () => {
+    const r = parseInt(document.getElementById('grid-rows').value) || 4;
+    const c = parseInt(document.getElementById('grid-cols').value) || 8;
+    gridRows = Math.max(1, Math.min(20, r));
+    gridCols = Math.max(1, Math.min(20, c));
+    db.ref('settings/grid').set({ rows: gridRows, cols: gridCols });
+  });
+
   // ---- Listeners ----
   function startListeners() {
+    db.ref('settings/grid').on('value', (snap) => {
+      const g = snap.val();
+      if (g) {
+        gridRows = g.rows || 4;
+        gridCols = g.cols || 8;
+        document.getElementById('grid-rows').value = gridRows;
+        document.getElementById('grid-cols').value = gridCols;
+      }
+      renderGrid();
+    });
+
     db.ref('buttons').on('value', (snap) => {
       buttons = snap.val() || {};
       if (!buttons[currentPage]) currentPage = 'page1';
@@ -136,11 +158,10 @@
   function renderGrid() {
     buttonGrid.innerHTML = '';
     const pageButtons = buttons[currentPage] || {};
-    const cols = 8;
-    buttonGrid.style.setProperty('--cols', cols);
+    buttonGrid.style.setProperty('--cols', gridCols);
 
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < gridRows; r++) {
+      for (let c = 0; c < gridCols; c++) {
         const key = r + '_' + c;
         const cfg = pageButtons[key];
         const btn = document.createElement('button');
