@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>OBS Remote Director</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ===== AUTH SCREEN ===== -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <h1>OBS Remote Director</h1>
+    <p>Enter PIN to connect</p>
+    <input type="password" id="pin-input" maxlength="8" placeholder="PIN" autofocus>
+    <button id="pin-submit">Connect</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- ===== APP SCREEN ===== -->
+<div id="app-screen">
+
+  <!-- Status Strip -->
+  <div class="status-strip">
+    <div class="status-item">
+      <span class="status-dot" id="dot-obs"></span>
+      <span class="status-label">OBS</span>
+      <span class="status-value" id="val-obs">--</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">Scene:</span>
+      <span class="status-value" id="val-scene">--</span>
+    </div>
+    <div class="status-item">
+      <span class="status-dot" id="dot-stream"></span>
+      <span class="status-label">Stream</span>
+      <span class="status-value" id="val-stream">OFF</span>
+    </div>
+    <div class="status-item">
+      <span class="status-dot" id="dot-record"></span>
+      <span class="status-label">Record</span>
+      <span class="status-value" id="val-record">OFF</span>
+    </div>
+    <div class="status-right">
+      <div class="status-item">
+        <span class="status-dot" id="dot-firebase"></span>
+        <span class="status-label">Firebase</span>
+        <span class="status-value" id="val-firebase">--</span>
+      </div>
+      <div class="status-item">
+        <a href="admin.html" style="color:var(--accent-cyan);text-decoration:none;font-size:12px;">&#9881; Admin</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page Tabs -->
+  <div class="page-tabs" id="page-tabs"></div>
+
+  <!-- Button Grid -->
+  <div class="grid-container">
+    <div class="button-grid" id="button-grid"></div>
+  </div>
+
+</div>
+
+<!-- ===== SCRIPTS ===== -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/deck.js"></script>
+</body>
+</html>

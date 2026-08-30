@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>OBS Remote Director — Admin</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    body { display: flex; }
+    .main-area { flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+    .admin-topbar {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 16px; background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+    }
+    .admin-topbar h1 { font-size: 15px; color: var(--accent-cyan); }
+    .admin-topbar .back-link { color: var(--text-secondary); text-decoration: none; font-size: 13px; }
+    .admin-topbar .back-link:hover { color: var(--accent-cyan); }
+    .drag-handle { cursor: grab; }
+    .deck-btn.dragging { opacity: 0.5; }
+  </style>
+</head>
+<body>
+
+<!-- ===== AUTH SCREEN ===== -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <h1>OBS Remote Director</h1>
+    <p>Admin Login — Enter PIN</p>
+    <input type="password" id="pin-input" maxlength="8" placeholder="PIN" autofocus>
+    <button id="pin-submit">Login</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="app-screen">
+  <div class="main-area">
+    <!-- Top Bar -->
+    <div class="admin-topbar">
+      <a href="index.html" class="back-link">&larr; Deck</a>
+      <h1>Admin / Editor</h1>
+      <span style="margin-left:auto;font-size:12px;color:var(--text-secondary);">Click a button to edit it</span>
+    </div>
+
+    <!-- Status Strip -->
+    <div class="status-strip">
+      <div class="status-item">
+        <span class="status-dot" id="dot-obs"></span>
+        <span class="status-label">OBS</span>
+        <span class="status-value" id="val-obs">--</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">Scene:</span>
+        <span class="status-value" id="val-scene">--</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot" id="dot-stream"></span>
+        <span class="status-label">Stream</span>
+        <span class="status-value" id="val-stream">OFF</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot" id="dot-record"></span>
+        <span class="status-label">Record</span>
+        <span class="status-value" id="val-record">OFF</span>
+      </div>
+      <div class="status-right">
+        <div class="status-item">
+          <span class="status-dot" id="dot-firebase"></span>
+          <span class="status-label">Firebase</span>
+          <span class="status-value" id="val-firebase">--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page Tabs -->
+    <div class="page-tabs" id="page-tabs"></div>
+
+    <!-- Grid -->
+    <div class="grid-container">
+      <div class="button-grid" id="button-grid"></div>
+    </div>
+  </div>
+
+  <!-- Admin Side Panel -->
+  <div class="admin-panel" id="admin-panel">
+    <h2>Edit Button</h2>
+
+    <label>Label</label>
+    <input type="text" id="ed-label" placeholder="Button text" maxlength="20">
+
+    <label>Icon</label>
+    <div class="icon-grid" id="icon-grid"></div>
+
+    <label>Color</label>
+    <div class="color-grid" id="color-grid"></div>
+
+    <label>Action</label>
+    <select id="ed-action">
+      <optgroup label="Scene Control">
+        <option value="SetCurrentProgramScene">Switch to Scene (Program)</option>
+        <option value="SetCurrentPreviewScene">Switch to Scene (Preview)</option>
+        <option value="TriggerStudioModeTransition">Trigger Transition</option>
+        <option value="SetStudioModeEnabled">Enable/Disable Studio Mode</option>
+        <option value="SetCurrentSceneTransition">Set Transition</option>
+        <option value="SetCurrentSceneTransitionDuration">Set Transition Duration</option>
+      </optgroup>
+      <optgroup label="Streaming">
+        <option value="ToggleStream">Toggle Stream</option>
+        <option value="StartStream">Start Stream</option>
+        <option value="StopStream">Stop Stream</option>
+      </optgroup>
+      <optgroup label="Recording">
+        <option value="ToggleRecord">Toggle Record</option>
+        <option value="StartRecord">Start Record</option>
+        <option value="StopRecord">Stop Record</option>
+        <option value="PauseRecord">Pause Record</option>
+        <option value="ResumeRecord">Resume Record</option>
+        <option value="SplitRecordFile">Split Recording</option>
+      </optgroup>
+      <optgroup label="Virtual Camera">
+        <option value="ToggleVirtualCam">Toggle Virtual Cam</option>
+        <option value="StartVirtualCam">Start Virtual Cam</option>
+        <option value="StopVirtualCam">Stop Virtual Cam</option>
+      </optgroup>
+      <optgroup label="Replay Buffer">
+        <option value="StartReplayBuffer">Start Replay Buffer</option>
+        <option value="StopReplayBuffer">Stop Replay Buffer</option>
+        <option value="SaveReplayBuffer">Save Replay</option>
+      </optgroup>
+      <optgroup label="Audio">
+        <option value="SetInputMute">Mute/Unmute Source</option>
+        <option value="ToggleInputMute">Toggle Mute</option>
+        <option value="SetInputVolume">Set Volume</option>
+        <option value="SetInputAudioSyncOffset">Set Audio Sync Offset</option>
+        <option value="SetInputAudioMonitorType">Set Monitor Type</option>
+      </optgroup>
+      <optgroup label="Sources">
+        <option value="SetSceneItemEnabled">Show/Hide Source</option>
+        <option value="SetSceneItemLocked">Lock/Unlock Source</option>
+        <option value="SetSceneItemTransform">Set Source Transform</option>
+        <option value="SetSceneItemIndex">Set Source Layer Order</option>
+      </optgroup>
+      <optgroup label="Filters">
+        <option value="SetSourceFilterEnabled">Enable/Disable Filter</option>
+        <option value="SetSourceFilterSettings">Set Filter Settings</option>
+        <option value="SetSourceFilterIndex">Set Filter Order</option>
+      </optgroup>
+      <optgroup label="Media">
+        <option value="SetInputSettings">Set Input Settings</option>
+        <option value="TriggerMediaInputAction">Media Action (Play/Pause/Stop)</option>
+        <option value="SetMediaInputCursor">Set Media Cursor</option>
+      </optgroup>
+      <optgroup label="Hotkey">
+        <option value="TriggerHotkeyByName">Trigger Hotkey by Name</option>
+      </optgroup>
+      <optgroup label="Profiles">
+        <option value="SetCurrentProfile">Switch Profile</option>
+        <option value="SetCurrentSceneCollection">Switch Scene Collection</option>
+      </optgroup>
+    </select>
+
+    <label>Value / Parameter</label>
+    <input type="text" id="ed-value" placeholder="e.g. scene name, volume dB, true/false">
+
+    <label>Input Name (for audio actions)</label>
+    <input type="text" id="ed-input" placeholder="e.g. Mic/Aux">
+
+    <label>Scene (for source actions)</label>
+    <input type="text" id="ed-scene" placeholder="e.g. Scene 2">
+
+    <label>Source / Item Name</label>
+    <input type="text" id="ed-item" placeholder="e.g. Camera 1">
+
+    <label>Filter Name</label>
+    <input type="text" id="ed-filter" placeholder="e.g. Color Correction">
+
+    <div class="admin-actions">
+      <button class="btn-save" id="btn-save">Save</button>
+      <button class="btn-delete" id="btn-delete">Delete</button>
+      <button class="btn-close" id="btn-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
