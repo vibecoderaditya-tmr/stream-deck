@@ -566,6 +566,7 @@ body {
 }
 .dk-isfs .dk-icon { font-size: 2.5em; }
 .dk-isfs .dk-label { font-size: 14px; }
+.dk-isfs .deck-icon-btn { display: none !important; }
 
 /* ===== CONFIGURE DIALOG ===== */
 .dk-overlay {
