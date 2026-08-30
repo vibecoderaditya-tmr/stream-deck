@@ -199,12 +199,20 @@
           btn.appendChild(plus);
         }
 
-        btn.addEventListener('click', (e) => {
-          if (e.detail === 1) {
+        let clickCount = 0;
+        btn.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return;
+          clickCount++;
+          if (clickCount === 1) {
             setTimeout(() => {
-              if (e.detail === 1) selectButton(r, c);
-            }, 200);
+              if (clickCount === 1) selectButton(r, c);
+              clickCount = 0;
+            }, 250);
           }
+        });
+        btn.addEventListener('dblclick', (e) => {
+          clickCount = 0;
+          selectButton(r, c);
           openEditor(r, c);
         });
         btn.draggable = true;
@@ -254,24 +262,15 @@
   function selectButton(row, col) {
     const key = row + '_' + col;
     selectedKey = key;
-    buttonGrid.querySelectorAll('.deck-btn').forEach(b => {
-      b.style.outline = '';
-      b.style.outlineOffset = '';
-    });
+    buttonGrid.querySelectorAll('.deck-btn').forEach(b => b.classList.remove('is-selected'));
     const idx = row * gridCols + col;
     const btn = buttonGrid.children[idx];
-    if (btn) {
-      btn.style.outline = '2px solid var(--accent-cyan)';
-      btn.style.outlineOffset = '-2px';
-    }
+    if (btn) btn.classList.add('is-selected');
   }
 
   function deselectAll() {
     selectedKey = null;
-    buttonGrid.querySelectorAll('.deck-btn').forEach(b => {
-      b.style.outline = '';
-      b.style.outlineOffset = '';
-    });
+    buttonGrid.querySelectorAll('.deck-btn').forEach(b => b.classList.remove('is-selected'));
   }
 
   function getButtonCfg(key) {
@@ -294,22 +293,29 @@
     const idx = r * gridCols + c;
     const btn = buttonGrid.children[idx];
     if (!btn) return;
-    btn.style.outline = '2px solid ' + (color || 'var(--accent-cyan)');
-    btn.style.outlineOffset = '-2px';
+    btn.classList.add('is-selected');
+    btn.style.outlineColor = color || 'var(--accent-cyan)';
     setTimeout(() => {
-      if (selectedKey !== key) {
-        btn.style.outline = '';
-        btn.style.outlineOffset = '';
-      }
+      btn.style.outlineColor = '';
     }, 600);
   }
 
   // ---- Keyboard Shortcuts ----
   document.addEventListener('keydown', (e) => {
     if (authScreen.style.display !== 'none') return;
-    if (adminPanel.classList.contains('open')) return;
 
     const key = e.key.toLowerCase();
+
+    if (key === 'escape') {
+      if (adminPanel.classList.contains('open')) {
+        closeEditor();
+      } else {
+        deselectAll();
+      }
+      return;
+    }
+
+    if (adminPanel.classList.contains('open')) return;
 
     if (key === 'c' && (e.ctrlKey || e.metaKey) && selectedKey) {
       e.preventDefault();
@@ -349,11 +355,6 @@
         db.ref('buttons/' + currentPage + '/' + selectedKey).remove();
         deselectAll();
       }
-    }
-
-    if (key === 'escape') {
-      deselectAll();
-      closeEditor();
     }
   });
 

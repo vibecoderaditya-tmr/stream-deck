@@ -287,6 +287,11 @@ body {
 
 .deck-btn.admin-mode .edit-overlay { display: block; }
 .deck-btn.admin-mode { cursor: pointer; }
+.deck-btn.is-selected {
+  outline: 3px solid var(--accent-cyan) !important;
+  outline-offset: -3px;
+  z-index: 1;
+}
 
 /* ---- Admin Side Panel ---- */
 .admin-panel {
