@@ -46,6 +46,7 @@
         <span style="color:var(--text-secondary);">x</span>
         <input type="number" id="grid-cols" min="1" max="20" value="8" style="width:48px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:12px;text-align:center;">
         <button id="grid-apply" style="padding:4px 10px;border:1px solid var(--accent-cyan);border-radius:4px;background:transparent;color:var(--accent-cyan);cursor:pointer;font-size:12px;">Apply</button>
+        <span style="color:var(--text-secondary);margin-left:8px;font-size:11px;">Drag to move | Ctrl+C/X/V | Del to delete | Esc to deselect</span>
       </div>
     </div>
 
@@ -188,15 +189,7 @@
     </div>
   </div>
 
-  <!-- Right-Click Context Menu -->
-  <div id="ctx-menu" class="ctx-menu hidden">
-    <div class="ctx-item" data-action="copy">Copy</div>
-    <div class="ctx-item" data-action="cut">Cut</div>
-    <div class="ctx-item" data-action="paste">Paste here</div>
-    <div class="ctx-item" data-action="duplicate">Duplicate to next slot</div>
-    <div class="ctx-sep"></div>
-    <div class="ctx-item ctx-danger" data-action="delete">Delete</div>
-  </div>
+
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>

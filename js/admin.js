@@ -60,9 +60,10 @@
   let editingKey  = null;
   let gridRows    = 4;
   let gridCols    = 8;
-  let clipboard   = null;  // copied button config
-  let cutSource   = null;  // { page, key } for cut operation
-  let ctxTarget   = null;  // { row, col } right-click target
+  let clipboard   = null;
+  let cutSource   = null;
+  let selectedKey = null;
+  let dragSrcKey  = null;
 
   // ---- Auth ----
   pinSubmit.addEventListener('click', doAuth);
@@ -198,94 +199,84 @@
           btn.appendChild(plus);
         }
 
-        btn.addEventListener('click', () => openEditor(r, c));
-        btn.addEventListener('contextmenu', (e) => {
+        btn.addEventListener('click', (e) => {
+          if (e.detail === 1) {
+            setTimeout(() => {
+              if (e.detail === 1) selectButton(r, c);
+            }, 200);
+          }
+          openEditor(r, c);
+        });
+        btn.draggable = true;
+        btn.addEventListener('dragstart', (e) => {
+          dragSrcKey = r + '_' + c;
+          btn.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        btn.addEventListener('dragend', () => {
+          btn.classList.remove('dragging');
+          dragSrcKey = null;
+          buttonGrid.querySelectorAll('.deck-btn').forEach(b => b.style.borderColor = '');
+        });
+        btn.addEventListener('dragover', (e) => {
           e.preventDefault();
-          ctxTarget = { row: r, col: c };
-          showContextMenu(e.pageX, e.pageY, r, c);
+          e.dataTransfer.dropEffect = 'move';
+          btn.style.borderColor = 'var(--accent-cyan)';
+        });
+        btn.addEventListener('dragleave', () => {
+          btn.style.borderColor = '';
+        });
+        btn.addEventListener('drop', (e) => {
+          e.preventDefault();
+          btn.style.borderColor = '';
+          if (!dragSrcKey) return;
+          const destKey = r + '_' + c;
+          if (dragSrcKey === destKey) return;
+          const srcCfg = ((buttons[currentPage] || {})[dragSrcKey]) || null;
+          const destCfg = ((buttons[currentPage] || {})[destKey]) || null;
+          if (srcCfg && srcCfg.label) {
+            if (destCfg && destCfg.label) {
+              db.ref('buttons/' + currentPage + '/' + destKey).set(srcCfg);
+              db.ref('buttons/' + currentPage + '/' + dragSrcKey).set(destCfg);
+            } else {
+              db.ref('buttons/' + currentPage + '/' + destKey).set(srcCfg);
+              db.ref('buttons/' + currentPage + '/' + dragSrcKey).remove();
+            }
+          }
+          dragSrcKey = null;
         });
         buttonGrid.appendChild(btn);
       }
     }
   }
 
-  // ---- Context Menu ----
-  const ctxMenu = document.getElementById('ctx-menu');
-
-  function showContextMenu(x, y, row, col) {
+  // ---- Button Selection ----
+  function selectButton(row, col) {
     const key = row + '_' + col;
-    const cfg = ((buttons[currentPage] || {})[key]) || null;
-    const hasBtn = cfg && cfg.label;
-
-    ctxMenu.querySelectorAll('.ctx-item').forEach((item) => {
-      const action = item.dataset.action;
-      item.style.display = 'none';
-      if (action === 'copy' && hasBtn) item.style.display = '';
-      if (action === 'cut' && hasBtn) item.style.display = '';
-      if (action === 'paste' && clipboard) item.style.display = '';
-      if (action === 'duplicate' && hasBtn) item.style.display = '';
-      if (action === 'delete' && hasBtn) item.style.display = '';
+    selectedKey = key;
+    buttonGrid.querySelectorAll('.deck-btn').forEach(b => {
+      b.style.outline = '';
+      b.style.outlineOffset = '';
     });
-
-    ctxMenu.style.left = x + 'px';
-    ctxMenu.style.top = y + 'px';
-    ctxMenu.classList.remove('hidden');
+    const idx = row * gridCols + col;
+    const btn = buttonGrid.children[idx];
+    if (btn) {
+      btn.style.outline = '2px solid var(--accent-cyan)';
+      btn.style.outlineOffset = '-2px';
+    }
   }
 
-  function hideContextMenu() {
-    ctxMenu.classList.add('hidden');
+  function deselectAll() {
+    selectedKey = null;
+    buttonGrid.querySelectorAll('.deck-btn').forEach(b => {
+      b.style.outline = '';
+      b.style.outlineOffset = '';
+    });
   }
 
-  document.addEventListener('click', hideContextMenu);
-
-  ctxMenu.querySelectorAll('.ctx-item').forEach((item) => {
-    item.addEventListener('click', () => {
-      const action = item.dataset.action;
-      if (!ctxTarget) return;
-      const key = ctxTarget.row + '_' + ctxTarget.col;
-      const pageButtons = buttons[currentPage] || {};
-      const cfg = pageButtons[key] || null;
-
-      if (action === 'copy') {
-        clipboard = JSON.parse(JSON.stringify(cfg));
-        cutSource = null;
-        flashButton(key, 'Copied!');
-      }
-
-      if (action === 'cut') {
-        clipboard = JSON.parse(JSON.stringify(cfg));
-        cutSource = { page: currentPage, key: key };
-        flashButton(key, 'Cut');
-      }
-
-      if (action === 'paste' && clipboard) {
-        const pasteCfg = JSON.parse(JSON.stringify(clipboard));
-        db.ref('buttons/' + currentPage + '/' + key).set(pasteCfg);
-        if (cutSource && cutSource.page === currentPage) {
-          db.ref('buttons/' + cutSource.page + '/' + cutSource.key).remove();
-          cutSource = null;
-        }
-        clipboard = null;
-      }
-
-      if (action === 'duplicate' && cfg) {
-        const nextKey = findNextEmpty();
-        if (nextKey) {
-          const dupCfg = JSON.parse(JSON.stringify(cfg));
-          db.ref('buttons/' + currentPage + '/' + nextKey).set(dupCfg);
-          flashButton(key, 'Duplicated');
-        }
-      }
-
-      if (action === 'delete') {
-        if (confirm('Delete this button?')) {
-          db.ref('buttons/' + currentPage + '/' + key).remove();
-        }
-      }
-
-      hideContextMenu();
-    });
-  });
+  function getButtonCfg(key) {
+    return ((buttons[currentPage] || {})[key]) || null;
+  }
 
   function findNextEmpty() {
     const pageButtons = buttons[currentPage] || {};
@@ -298,16 +289,73 @@
     return null;
   }
 
-  function flashButton(key, msg) {
+  function flashButton(key, color) {
     const [r, c] = key.split('_').map(Number);
     const idx = r * gridCols + c;
     const btn = buttonGrid.children[idx];
     if (!btn) return;
-    const orig = btn.style.outline;
-    btn.style.outline = '2px solid var(--accent-cyan)';
+    btn.style.outline = '2px solid ' + (color || 'var(--accent-cyan)');
     btn.style.outlineOffset = '-2px';
-    setTimeout(() => { btn.style.outline = orig; }, 600);
+    setTimeout(() => {
+      if (selectedKey !== key) {
+        btn.style.outline = '';
+        btn.style.outlineOffset = '';
+      }
+    }, 600);
   }
+
+  // ---- Keyboard Shortcuts ----
+  document.addEventListener('keydown', (e) => {
+    if (authScreen.style.display !== 'none') return;
+    if (adminPanel.classList.contains('open')) return;
+
+    const key = e.key.toLowerCase();
+
+    if (key === 'c' && (e.ctrlKey || e.metaKey) && selectedKey) {
+      e.preventDefault();
+      const cfg = getButtonCfg(selectedKey);
+      if (cfg && cfg.label) {
+        clipboard = JSON.parse(JSON.stringify(cfg));
+        cutSource = null;
+        flashButton(selectedKey, 'var(--accent-green)');
+      }
+    }
+
+    if (key === 'x' && (e.ctrlKey || e.metaKey) && selectedKey) {
+      e.preventDefault();
+      const cfg = getButtonCfg(selectedKey);
+      if (cfg && cfg.label) {
+        clipboard = JSON.parse(JSON.stringify(cfg));
+        cutSource = { page: currentPage, key: selectedKey };
+        flashButton(selectedKey, 'var(--accent-yellow)');
+      }
+    }
+
+    if (key === 'v' && (e.ctrlKey || e.metaKey) && selectedKey && clipboard) {
+      e.preventDefault();
+      db.ref('buttons/' + currentPage + '/' + selectedKey).set(JSON.parse(JSON.stringify(clipboard)));
+      if (cutSource && cutSource.page === currentPage) {
+        db.ref('buttons/' + cutSource.page + '/' + cutSource.key).remove();
+        cutSource = null;
+      }
+      clipboard = null;
+      flashButton(selectedKey, 'var(--accent-cyan)');
+    }
+
+    if (key === 'delete' && selectedKey) {
+      e.preventDefault();
+      const cfg = getButtonCfg(selectedKey);
+      if (cfg && cfg.label) {
+        db.ref('buttons/' + currentPage + '/' + selectedKey).remove();
+        deselectAll();
+      }
+    }
+
+    if (key === 'escape') {
+      deselectAll();
+      closeEditor();
+    }
+  });
 
   // ---- Color Grid ----
   function buildColorGrid() {
