@@ -88,6 +88,7 @@
   let gridCols = 8;
   let currentPage = null;
   let currentKey = null;   // selected tile key e.g. "0_1"
+  let saving = false;      // prevent editor refresh during live save
 
   // ===== DOM =====
   const $auth = document.getElementById('auth-screen');
@@ -180,7 +181,7 @@
     db.ref('buttons').on('value', (snap) => {
       buttons = snap.val() || {};
       renderGrid();
-      if (currentKey) refreshEditor();
+      if (currentKey && !saving) refreshEditor();
     });
   }
 
@@ -581,7 +582,8 @@
     };
 
     const path = `buttons/${currentPage}/${currentKey}`;
-    db.ref(path).set(cfg);
+    saving = true;
+    db.ref(path).set(cfg).then(() => { saving = false; }).catch(() => { saving = false; });
   }
 
   // ===== NAV =====
