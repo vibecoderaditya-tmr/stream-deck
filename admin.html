@@ -5,20 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>OBS Remote Director — Admin</title>
   <link rel="stylesheet" href="css/style.css">
-  <style>
-    body { display: flex; }
-    .main-area { flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-    .admin-topbar {
-      display: flex; align-items: center; gap: 12px;
-      padding: 8px 16px; background: var(--bg-panel);
-      border-bottom: 1px solid var(--border);
-    }
-    .admin-topbar h1 { font-size: 15px; color: var(--accent-cyan); }
-    .admin-topbar .back-link { color: var(--text-secondary); text-decoration: none; font-size: 13px; }
-    .admin-topbar .back-link:hover { color: var(--accent-cyan); }
-    .drag-handle { cursor: grab; }
-    .deck-btn.dragging { opacity: 0.5; }
-  </style>
 </head>
 <body>
 
@@ -35,185 +21,144 @@
 
 <!-- ===== APP ===== -->
 <div id="app-screen">
-  <div class="main-area">
-    <!-- Top Bar -->
-    <div class="admin-topbar">
-      <a href="index.html" class="back-link">&larr; Deck</a>
-      <h1>Admin / Editor</h1>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;">
-        <span style="color:var(--text-secondary);">Grid:</span>
-        <input type="number" id="grid-rows" min="1" max="20" value="4" style="width:48px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:12px;text-align:center;">
-        <span style="color:var(--text-secondary);">x</span>
-        <input type="number" id="grid-cols" min="1" max="20" value="8" style="width:48px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:12px;text-align:center;">
-        <button id="grid-apply" style="padding:4px 10px;border:1px solid var(--accent-cyan);border-radius:4px;background:transparent;color:var(--accent-cyan);cursor:pointer;font-size:12px;">Apply</button>
-      </div>
-    </div>
 
-    <!-- Status Strip -->
-    <div class="status-strip">
-      <div class="status-item">
-        <span class="status-dot" id="dot-obs"></span>
-        <span class="status-label">OBS</span>
-        <span class="status-value" id="val-obs">--</span>
+  <!-- Left Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">OBS<br>Director</div>
+    <nav class="sidebar-nav">
+      <a class="sidebar-link active" data-section="buttons">
+        <span class="sidebar-icon">&#9638;</span>
+        <span>Buttons</span>
+      </a>
+      <a class="sidebar-link" data-section="pages">
+        <span class="sidebar-icon">&#9776;</span>
+        <span>Pages</span>
+      </a>
+      <a class="sidebar-link" data-section="settings">
+        <span class="sidebar-icon">&#9881;</span>
+        <span>Settings</span>
+      </a>
+    </nav>
+    <div class="sidebar-bottom">
+      <a href="index.html" class="sidebar-link">
+        <span class="sidebar-icon">&#8592;</span>
+        <span>Deck</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main Wrapper -->
+  <div class="main-wrap">
+
+    <!-- Top Header -->
+    <header class="topbar">
+      <div class="topbar-title">Buttons</div>
+      <div class="topbar-status">
+        <span class="status-item"><span class="status-dot" id="dot-obs"></span> OBS</span>
+        <span class="status-item"><span class="status-dot" id="dot-firebase"></span> Firebase</span>
       </div>
-      <div class="status-item">
-        <span class="status-label">Scene:</span>
-        <span class="status-value" id="val-scene">--</span>
-      </div>
-      <div class="status-item">
-        <span class="status-dot" id="dot-stream"></span>
-        <span class="status-label">Stream</span>
-        <span class="status-value" id="val-stream">OFF</span>
-      </div>
-      <div class="status-item">
-        <span class="status-dot" id="dot-record"></span>
-        <span class="status-label">Record</span>
-        <span class="status-value" id="val-record">OFF</span>
-      </div>
-      <div class="status-right">
-        <div class="status-item">
-          <span class="status-dot" id="dot-firebase"></span>
-          <span class="status-label">Firebase</span>
-          <span class="status-value" id="val-firebase">--</span>
+    </header>
+
+    <!-- Buttons Section -->
+    <section class="section section-active" id="section-buttons">
+      <div class="split-panel">
+
+        <!-- Left: Grid -->
+        <div class="panel-left">
+          <div class="grid-toolbar">
+            <button class="page-arrow" id="page-prev">&lt;</button>
+            <select id="page-select" class="page-select"></select>
+            <button class="page-arrow" id="page-next">&gt;</button>
+            <span class="grid-size-display" id="grid-size-display">4x8</span>
+          </div>
+          <div class="grid-scroll">
+            <div class="button-grid" id="button-grid"></div>
+          </div>
         </div>
+
+        <!-- Right: Editor -->
+        <div class="panel-right" id="panel-right">
+          <div class="editor-empty" id="editor-empty">
+            <p>Select a button to edit</p>
+          </div>
+          <div class="editor-form" id="editor-form" style="display:none;">
+
+            <!-- Preview -->
+            <div class="editor-section">
+              <div class="editor-section-title">Preview</div>
+              <div class="btn-preview-wrap">
+                <div class="btn-preview" id="btn-preview">
+                  <span class="btn-preview-icon" id="preview-icon"></span>
+                  <span class="btn-preview-label" id="preview-label">Button</span>
+                </div>
+              </div>
+              <div class="field-row">
+                <label>Label</label>
+                <input type="text" id="ed-label" placeholder="Button text" maxlength="20">
+              </div>
+              <div class="field-row">
+                <label>Color</label>
+                <div class="color-strip" id="ed-colors"></div>
+              </div>
+              <div class="field-row">
+                <label>Icon</label>
+                <div class="icon-strip" id="ed-icons"></div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="editor-section">
+              <div class="editor-section-title">Actions <span class="section-hint">(on press)</span></div>
+              <div id="actions-list"></div>
+              <button class="add-btn" id="add-action">+ Add Action</button>
+            </div>
+
+            <!-- Feedbacks -->
+            <div class="editor-section">
+              <div class="editor-section-title">Feedbacks <span class="section-hint">(live state)</span></div>
+              <div id="feedbacks-list"></div>
+              <button class="add-btn" id="add-feedback">+ Add Feedback</button>
+              <p class="section-note">First matching rule sets the color. Otherwise button keeps base color.</p>
+            </div>
+
+          </div>
+        </div>
+
       </div>
-    </div>
+    </section>
 
-    <!-- Page Tabs -->
-    <div class="page-tabs" id="page-tabs"></div>
+    <!-- Pages Section -->
+    <section class="section" id="section-pages">
+      <div class="pages-panel">
+        <div class="pages-header">
+          <h2>Page Manager</h2>
+          <button class="add-btn" id="add-page">+ Add Page</button>
+        </div>
+        <div id="pages-list"></div>
+      </div>
+    </section>
 
-    <!-- Grid -->
-    <div class="grid-container">
-      <div class="button-grid" id="button-grid"></div>
-    </div>
+    <!-- Settings Section -->
+    <section class="section" id="section-settings">
+      <div class="settings-panel">
+        <h2>Settings</h2>
+        <div class="field-row">
+          <label>Grid Rows</label>
+          <input type="number" id="set-rows" min="1" max="20" value="4">
+        </div>
+        <div class="field-row">
+          <label>Grid Columns</label>
+          <input type="number" id="set-cols" min="1" max="20" value="8">
+        </div>
+        <div class="field-row">
+          <label>PIN Code</label>
+          <input type="text" id="set-pin" maxlength="8" placeholder="1234">
+        </div>
+        <button class="save-btn" id="save-settings">Save Settings</button>
+      </div>
+    </section>
+
   </div>
-
-  <!-- Admin Side Panel -->
-  <div class="admin-panel" id="admin-panel">
-    <h2>Edit Button</h2>
-
-    <label>Label</label>
-    <input type="text" id="ed-label" placeholder="Button text" maxlength="20">
-
-    <label>Icon</label>
-    <div class="icon-grid" id="icon-grid"></div>
-
-    <label>Color</label>
-    <div class="color-grid" id="color-grid"></div>
-
-    <label>Action</label>
-    <select id="ed-action">
-      <optgroup label="Scene Control">
-        <option value="SetCurrentProgramScene">Switch to Scene (Program)</option>
-        <option value="SetCurrentPreviewScene">Switch to Scene (Preview)</option>
-        <option value="TriggerStudioModeTransition">Trigger Transition</option>
-        <option value="SetStudioModeEnabled">Enable/Disable Studio Mode</option>
-        <option value="SetCurrentSceneTransition">Set Transition</option>
-        <option value="SetCurrentSceneTransitionDuration">Set Transition Duration</option>
-      </optgroup>
-      <optgroup label="Streaming">
-        <option value="ToggleStream">Toggle Stream</option>
-        <option value="StartStream">Start Stream</option>
-        <option value="StopStream">Stop Stream</option>
-      </optgroup>
-      <optgroup label="Recording">
-        <option value="ToggleRecord">Toggle Record</option>
-        <option value="StartRecord">Start Record</option>
-        <option value="StopRecord">Stop Record</option>
-        <option value="PauseRecord">Pause Record</option>
-        <option value="ResumeRecord">Resume Record</option>
-        <option value="SplitRecordFile">Split Recording</option>
-      </optgroup>
-      <optgroup label="Virtual Camera">
-        <option value="ToggleVirtualCam">Toggle Virtual Cam</option>
-        <option value="StartVirtualCam">Start Virtual Cam</option>
-        <option value="StopVirtualCam">Stop Virtual Cam</option>
-      </optgroup>
-      <optgroup label="Replay Buffer">
-        <option value="StartReplayBuffer">Start Replay Buffer</option>
-        <option value="StopReplayBuffer">Stop Replay Buffer</option>
-        <option value="SaveReplayBuffer">Save Replay</option>
-      </optgroup>
-      <optgroup label="Audio">
-        <option value="SetInputMute">Mute/Unmute Source</option>
-        <option value="ToggleInputMute">Toggle Mute</option>
-        <option value="SetInputVolume">Set Volume</option>
-        <option value="SetInputAudioSyncOffset">Set Audio Sync Offset</option>
-        <option value="SetInputAudioMonitorType">Set Monitor Type</option>
-      </optgroup>
-      <optgroup label="Sources">
-        <option value="SetSceneItemEnabled">Show/Hide Source</option>
-        <option value="SetSceneItemLocked">Lock/Unlock Source</option>
-        <option value="SetSceneItemTransform">Set Source Transform</option>
-        <option value="SetSceneItemIndex">Set Source Layer Order</option>
-      </optgroup>
-      <optgroup label="Filters">
-        <option value="SetSourceFilterEnabled">Enable/Disable Filter</option>
-        <option value="SetSourceFilterSettings">Set Filter Settings</option>
-        <option value="SetSourceFilterIndex">Set Filter Order</option>
-      </optgroup>
-      <optgroup label="Media">
-        <option value="SetInputSettings">Set Input Settings</option>
-        <option value="TriggerMediaInputAction">Media Action (Play/Pause/Stop)</option>
-        <option value="SetMediaInputCursor">Set Media Cursor</option>
-      </optgroup>
-      <optgroup label="Hotkey">
-        <option value="TriggerHotkeyByName">Trigger Hotkey by Name</option>
-      </optgroup>
-      <optgroup label="Profiles">
-        <option value="SetCurrentProfile">Switch Profile</option>
-        <option value="SetCurrentSceneCollection">Switch Scene Collection</option>
-      </optgroup>
-    </select>
-
-    <label>Value / Parameter</label>
-    <input type="text" id="ed-value" placeholder="e.g. scene name, volume dB, true/false">
-
-    <label>Input Name (for audio actions)</label>
-    <input type="text" id="ed-input" placeholder="e.g. Mic/Aux">
-
-    <label>Scene (for source actions)</label>
-    <input type="text" id="ed-scene" placeholder="e.g. Scene 2">
-
-    <label>Source / Item Name</label>
-    <input type="text" id="ed-item" placeholder="e.g. Camera 1">
-
-    <label>Filter Name</label>
-    <input type="text" id="ed-filter" placeholder="e.g. Color Correction">
-
-    <label>Custom Feedback</label>
-    <select id="ed-feedback-type">
-      <option value="">None</option>
-      <option value="builtin">Built-in (auto from action)</option>
-      <option value="custom">Custom Rules</option>
-    </select>
-
-    <div id="feedback-builtin" style="display:none;">
-      <p style="font-size:11px;color:var(--text-secondary);margin:4px 0;">Button color changes automatically based on its action</p>
-    </div>
-
-    <div id="feedback-custom" style="display:none;">
-      <div id="fb-rules"></div>
-      <button id="fb-add-rule" style="width:100%;padding:6px;border:1px dashed var(--border);border-radius:4px;background:transparent;color:var(--accent-cyan);cursor:pointer;font-size:12px;margin-top:6px;">+ Add Rule</button>
-      <p style="font-size:10px;color:var(--text-secondary);margin-top:4px;">First matching rule sets the color. If no rule matches, button keeps its base color.</p>
-    </div>
-
-    <div class="admin-actions">
-      <button class="btn-save" id="btn-save">Save</button>
-      <button class="btn-delete" id="btn-delete">Delete</button>
-      <button class="btn-close" id="btn-close">Close</button>
-    </div>
-  </div>
-
-  <!-- Right-Click Context Menu -->
-  <div id="ctx-menu" class="ctx-menu hidden">
-    <div class="ctx-item" data-action="copy">Copy</div>
-    <div class="ctx-item" data-action="cut">Cut</div>
-    <div class="ctx-item" data-action="paste">Paste here</div>
-    <div class="ctx-sep"></div>
-    <div class="ctx-item ctx-danger" data-action="delete">Delete</div>
-  </div>
-
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>

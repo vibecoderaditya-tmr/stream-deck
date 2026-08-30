@@ -1,517 +1,667 @@
 /* =========================================================
-   OBS Remote Director — Admin/Editor Page Logic
+   OBS Remote Director — Admin Panel
    ========================================================= */
-
-(function() {
+(function () {
   'use strict';
 
-  firebase.initializeApp(FIREBASE_CONFIG);
-  const db   = firebase.database();
-
-  const authScreen   = document.getElementById('auth-screen');
-  const appScreen    = document.getElementById('app-screen');
-  const pinInput     = document.getElementById('pin-input');
-  const pinSubmit    = document.getElementById('pin-submit');
-  const authError    = document.getElementById('auth-error');
-  const pageTabsEl   = document.getElementById('page-tabs');
-  const buttonGrid   = document.getElementById('button-grid');
-  const adminPanel   = document.getElementById('admin-panel');
-
-  // Status elements
-  const dotObs       = document.getElementById('dot-obs');
-  const valObs       = document.getElementById('val-obs');
-  const dotStream    = document.getElementById('dot-stream');
-  const valStream    = document.getElementById('val-stream');
-  const dotRecord    = document.getElementById('dot-record');
-  const valRecord    = document.getElementById('val-record');
-  const dotFirebase  = document.getElementById('dot-firebase');
-  const valFirebase  = document.getElementById('val-firebase');
-  const valScene     = document.getElementById('val-scene');
-
-  // Editor fields
-  const edLabel   = document.getElementById('ed-label');
-  const edAction  = document.getElementById('ed-action');
-  const edValue   = document.getElementById('ed-value');
-  const edInput   = document.getElementById('ed-input');
-  const edScene   = document.getElementById('ed-scene');
-  const edItem    = document.getElementById('ed-item');
-  const edFilter  = document.getElementById('ed-filter');
-  const edFeedbackType = document.getElementById('ed-feedback-type');
-  const feedbackBuiltin = document.getElementById('feedback-builtin');
-  const feedbackCustom = document.getElementById('feedback-custom');
-  const fbRulesEl = document.getElementById('fb-rules');
-  const fbAddRule = document.getElementById('fb-add-rule');
-  const btnSave   = document.getElementById('btn-save');
-  const btnDelete = document.getElementById('btn-delete');
-  const btnClose  = document.getElementById('btn-close');
-
-  const COLORS = ['default','green','red','blue','yellow','purple','orange','cyan','gray','pink'];
   const COLOR_HEX = {
-    default: '#0f3460', green: '#00c853', red: '#ff1744', blue: '#2979ff',
+    default: '#2a2a2a', green: '#00c853', red: '#ff1744', blue: '#2979ff',
     yellow: '#ffd600', purple: '#aa00ff', orange: '#ff6d00', cyan: '#00e5ff',
-    gray: '#555555', pink: '#f06292'
+    gray: '#555555', pink: '#f06292',
   };
+  const COLORS = Object.keys(COLOR_HEX);
   const ICONS = [
-    '🎬','🎥','📺','📷','🖼','🎭','🎪','🎤',
-    '🔊','🔇','🔈','🔉','🎚','🎛','🎵','🎶',
-    '🔴','⏺','⏹','⏯','⏸','🟢','🟡','🔵',
-    '⬜','⬛','💡','⚡','🌟','✨','🎯','🚀',
-    '▶','💾','📂','📝','⚙','🔧','👤','📡',
+    { v: '', l: 'None', cls: 'none-icon' },
+    { v: '\u{1F4FA}', l: 'TV' }, { v: '\u{1F3AC}', l: 'Film' },
+    { v: '\u{1F3A4}', l: 'Mic' }, { v: '\u{1F50A}', l: 'Speaker' },
+    { v: '\u{1F4F7}', l: 'Camera' }, { v: '\u{1F3A8}', l: 'Palette' },
+    { v: '\u{26A1}', l: 'Bolt' }, { v: '\u{1F534}', l: 'Red Dot' },
+    { v: '\u{1F7E2}', l: 'Green' }, { v: '\u{1F535}', l: 'Blue' },
+    { v: '\u{1F680}', l: 'Rocket' }, { v: '\u{1F3C6}', l: 'Trophy' },
+    { v: '\u{1F512}', l: 'Lock' }, { v: '\u{1F513}', l: 'Unlock' },
+    { v: '\u{1F4E3}', l: 'Broadcast' }, { v: '\u{23F9}', l: 'Stop' },
+    { v: '\u{25B6}', l: 'Play' }, { v: '\u{23F8}', l: 'Pause' },
+    { v: '\u{1F39B}', l: 'Dial' }, { v: '\u{1F9E9}', l: 'Puzzle' },
   ];
 
-  let currentPage = 'page1';
-  let buttons     = {};
-  let status      = {};
-  let editingKey  = null;
-  let gridRows    = 4;
-  let gridCols    = 8;
-  let clipboard   = null;
-  let cutSource   = null;
-  let ctxTarget   = null;
+  const ACTION_TYPES = [
+    { v: 'set_scene',          t: 'Switch Scene',       fields: ['scene'] },
+    { v: 'set_preview_scene',  t: 'Set Preview Scene',  fields: ['scene'] },
+    { v: 'transition',         t: 'Transition (Cut)',    fields: [] },
+    { v: 'transition_stinger',t: 'Transition (Stinger)',fields: [] },
+    { v: 'start_stream',      t: 'Start Stream',        fields: [] },
+    { v: 'stop_stream',       t: 'Stop Stream',         fields: [] },
+    { v: 'start_record',      t: 'Start Recording',     fields: [] },
+    { v: 'stop_record',       t: 'Stop Recording',      fields: [] },
+    { v: 'pause_record',      t: 'Pause Recording',     fields: [] },
+    { v: 'resume_record',     t: 'Resume Recording',    fields: [] },
+    { v: 'toggle_record',     t: 'Toggle Recording',    fields: [] },
+    { v: 'start_virtual_cam',  t: 'Start Virtual Cam',  fields: [] },
+    { v: 'stop_virtual_cam',   t: 'Stop Virtual Cam',   fields: [] },
+    { v: 'toggle_virtual_cam', t: 'Toggle Virtual Cam', fields: [] },
+    { v: 'start_replay_buffer', t: 'Start Replay Buffer', fields: [] },
+    { v: 'stop_replay_buffer',  t: 'Stop Replay Buffer',  fields: [] },
+    { v: 'save_replay',         t: 'Save Replay',        fields: [] },
+    { v: 'set_source_mute',   t: 'Mute/Unmute Source',  fields: ['source', 'muted'] },
+    { v: 'toggle_source_mute',t: 'Toggle Mute',         fields: ['source'] },
+    { v: 'set_scene_item_show', t: 'Show/Hide Source',  fields: ['source', 'visible'] },
+    { v: 'set_scene_item_lock', t: 'Lock/Unlock Source',fields: ['source', 'locked'] },
+    { v: 'play_media',        t: 'Play Media',          fields: ['source'] },
+    { v: 'pause_media',       t: 'Pause Media',         fields: ['source'] },
+    { v: 'restart_media',     t: 'Restart Media',       fields: ['source'] },
+    { v: 'stop_media',        t: 'Stop Media',          fields: ['source'] },
+    { v: 'text_grotto',       t: 'Set Text (GDI+)',     fields: ['source', 'text'] },
+    { v: 'browser_source',    t: 'Browser Source URL',   fields: ['source', 'url'] },
+    { v: 'hotkey',            t: 'Send Hotkey',          fields: ['hotkey'] },
+    { v: 'obs_command',       t: 'Custom OBS Command',   fields: ['command'] },
+  ];
 
-  // ---- Auth ----
-  pinSubmit.addEventListener('click', doAuth);
-  pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAuth(); });
+  const FEEDBACK_FIELDS = [
+    { v: 'scene',       t: 'Program Scene' },
+    { v: 'preview',     t: 'Preview Scene' },
+    { v: 'streaming',   t: 'Is Streaming' },
+    { v: 'recording',   t: 'Is Recording' },
+    { v: 'paused',      t: 'Is Paused' },
+    { v: 'virtualcam',  t: 'Virtual Cam' },
+    { v: 'replaybuffer',t: 'Replay Buffer' },
+    { v: 'studio_mode', t: 'Studio Mode' },
+    { v: 'transitioning',t: 'Transitioning' },
+    { v: 'custom',      t: 'Custom field...' },
+  ];
+  const FEEDBACK_OPS = [
+    { v: 'eq', t: 'Equals' },
+    { v: 'neq', t: 'Not Equals' },
+    { v: 'true', t: 'Is True' },
+    { v: 'false', t: 'Is False' },
+    { v: 'contains', t: 'Contains' },
+  ];
 
-  function doAuth() {
-    const pin = pinInput.value.trim();
-    if (pin !== PIN_CODE) { authError.textContent = 'Wrong PIN'; return; }
-    authError.textContent = '';
-    authScreen.style.display = 'none';
-    appScreen.classList.add('active');
-    buildColorGrid();
-    buildIconGrid();
-    startListeners();
+  // ===== FIREBASE =====
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const db = firebase.database();
+
+  // ===== STATE =====
+  let pinCode = null;
+  let pages = {};          // { pageId: { name, order } }
+  let buttons = {};        // { pageId: { "row_col": { ... } } }
+  let gridRows = 4;
+  let gridCols = 8;
+  let currentPage = null;
+  let currentKey = null;   // selected tile key e.g. "0_1"
+
+  // ===== DOM =====
+  const $auth = document.getElementById('auth-screen');
+  const $app = document.getElementById('app-screen');
+  const $pinInput = document.getElementById('pin-input');
+  const $pinSubmit = document.getElementById('pin-submit');
+  const $authError = document.getElementById('auth-error');
+  const $grid = document.getElementById('button-grid');
+  const $gridSize = document.getElementById('grid-size-display');
+  const $pageSelect = document.getElementById('page-select');
+  const $pagePrev = document.getElementById('page-prev');
+  const $pageNext = document.getElementById('page-next');
+  const $editorEmpty = document.getElementById('editor-empty');
+  const $editorForm = document.getElementById('editor-form');
+  const $previewLabel = document.getElementById('preview-label');
+  const $previewIcon = document.getElementById('preview-icon');
+  const $edLabel = document.getElementById('ed-label');
+  const $edColors = document.getElementById('ed-colors');
+  const $edIcons = document.getElementById('ed-icons');
+  const $actionsList = document.getElementById('actions-list');
+  const $feedbacksList = document.getElementById('feedbacks-list');
+  const $dotObs = document.getElementById('dot-obs');
+  const $dotFirebase = document.getElementById('dot-firebase');
+
+  // ===== AUTH =====
+  $pinSubmit.addEventListener('click', tryPin);
+  $pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryPin(); });
+
+  function tryPin() {
+    const v = $pinInput.value.trim();
+    db.ref('settings/pin').once('value', (snap) => {
+      const correct = snap.val();
+      if (!correct || v === correct) {
+        pinCode = v;
+        $auth.style.display = 'none';
+        $app.classList.add('active');
+        loadAll();
+      } else {
+        $authError.textContent = 'Wrong PIN';
+        $pinInput.value = '';
+        $pinInput.focus();
+      }
+    }).catch(() => {
+      // Firebase unreachable — allow offline
+      pinCode = v;
+      $auth.style.display = 'none';
+      $app.classList.add('active');
+      loadAll();
+    });
   }
 
-  // Show/hide custom feedback fields
-  edFeedbackType.addEventListener('change', () => {
-    const t = edFeedbackType.value;
-    feedbackBuiltin.style.display = t === 'builtin' ? '' : 'none';
-    feedbackCustom.style.display = t === 'custom' ? '' : 'none';
+  // ===== LOAD ALL =====
+  function loadAll() {
+    loadSettings();
+    loadPages();
+    loadButtons();
+    listenFirebaseStatus();
+  }
+
+  function loadSettings() {
+    db.ref('settings/grid').once('value', (snap) => {
+      const g = snap.val();
+      if (g) { gridRows = g.rows || 4; gridCols = g.cols || 8; }
+      $grid.style.setProperty('--rows', gridRows);
+      $grid.style.setProperty('--cols', gridCols);
+      $grid.style.gridTemplateColumns = `repeat(${gridCols}, var(--button-w))`;
+      $gridSize.textContent = `${gridRows}x${gridCols}`;
+      document.getElementById('set-rows').value = gridRows;
+      document.getElementById('set-cols').value = gridCols;
+      renderGrid();
+    });
+    db.ref('settings/pin').once('value', (snap) => {
+      document.getElementById('set-pin').value = snap.val() || '';
+    });
+  }
+
+  function loadPages() {
+    db.ref('pages').on('value', (snap) => {
+      pages = snap.val() || {};
+      renderPageSelect();
+      if (!currentPage || !pages[currentPage]) {
+        const keys = Object.keys(pages);
+        currentPage = keys.length ? keys.sort((a, b) => (pages[a].order || 0) - (pages[b].order || 0))[0] : null;
+      }
+      renderGrid();
+    });
+  }
+
+  function loadButtons() {
+    db.ref('buttons').on('value', (snap) => {
+      buttons = snap.val() || {};
+      renderGrid();
+      if (currentKey) refreshEditor();
+    });
+  }
+
+  function listenFirebaseStatus() {
+    db.ref('.info/connected').on('value', (snap) => {
+      $dotFirebase.className = 'status-dot' + (snap.val() ? ' green' : ' red');
+    });
+    // OBS status via feedback polling (simplified)
+    db.ref('status/obs').on('value', (snap) => {
+      $dotObs.className = 'status-dot' + (snap.val() ? ' green' : ' red');
+    });
+  }
+
+  // ===== PAGE SELECTOR =====
+  function renderPageSelect() {
+    $pageSelect.innerHTML = '';
+    const sorted = Object.keys(pages).sort((a, b) => (pages[a].order || 0) - (pages[b].order || 0));
+    sorted.forEach((pid) => {
+      const o = document.createElement('option');
+      o.value = pid;
+      o.textContent = pages[pid].name || pid;
+      if (pid === currentPage) o.selected = true;
+      $pageSelect.appendChild(o);
+    });
+    if (!sorted.length) {
+      const o = document.createElement('option');
+      o.value = '';
+      o.textContent = 'No pages';
+      $pageSelect.appendChild(o);
+    }
+  }
+
+  $pageSelect.addEventListener('change', () => {
+    currentPage = $pageSelect.value;
+    currentKey = null;
+    showEmptyEditor();
+    renderGrid();
   });
 
-  const FB_FIELDS = [
-    { v: 'scene', t: 'Program Scene' },
-    { v: 'preview', t: 'Preview Scene' },
-    { v: 'streaming', t: 'Is Streaming' },
-    { v: 'recording', t: 'Is Recording' },
-    { v: 'paused', t: 'Is Paused' },
-    { v: 'virtualcam', t: 'Virtual Cam Active' },
-    { v: 'replaybuffer', t: 'Replay Buffer Active' },
-    { v: 'studio_mode', t: 'Studio Mode On' },
-    { v: 'transitioning', t: 'Transition In Progress' },
-    { v: 'custom', t: 'Custom field...' },
-  ];
+  $pagePrev.addEventListener('click', () => {
+    const sorted = Object.keys(pages).sort((a, b) => (pages[a].order || 0) - (pages[b].order || 0));
+    const idx = sorted.indexOf(currentPage);
+    if (idx > 0) { currentPage = sorted[idx - 1]; $pageSelect.value = currentPage; currentKey = null; showEmptyEditor(); renderGrid(); }
+  });
 
-  let fbRuleCount = 0;
+  $pageNext.addEventListener('click', () => {
+    const sorted = Object.keys(pages).sort((a, b) => (pages[a].order || 0) - (pages[b].order || 0));
+    const idx = sorted.indexOf(currentPage);
+    if (idx < sorted.length - 1) { currentPage = sorted[idx + 1]; $pageSelect.value = currentPage; currentKey = null; showEmptyEditor(); renderGrid(); }
+  });
 
-  function addFbRule(rule) {
-    rule = rule || {};
-    const id = fbRuleCount++;
-    const div = document.createElement('div');
-    div.className = 'fb-rule';
-    div.style.cssText = 'border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px;position:relative;';
-    div.dataset.idx = id;
+  // ===== GRID RENDERING =====
+  function renderGrid() {
+    $grid.innerHTML = '';
+    $grid.style.setProperty('--cols', gridCols);
+    $grid.style.gridTemplateColumns = `repeat(${gridCols}, var(--button-w))`;
+    const pageBtns = (currentPage && buttons[currentPage]) || {};
+    for (let r = 0; r < gridRows; r++) {
+      for (let c = 0; c < gridCols; c++) {
+        const key = `${r}_${c}`;
+        const cfg = pageBtns[key];
+        const div = document.createElement('div');
+        div.className = 'deck-btn' + (cfg ? ' c-' + (cfg.color || 'default') : ' empty');
+        if (key === currentKey && cfg) div.classList.add('selected');
+        div.dataset.key = key;
+        if (cfg) {
+          if (cfg.icon) {
+            const ico = document.createElement('span');
+            ico.className = 'btn-icon';
+            ico.textContent = cfg.icon;
+            div.appendChild(ico);
+          }
+          const lbl = document.createElement('span');
+          lbl.className = 'btn-label';
+          lbl.textContent = cfg.label || key;
+          div.appendChild(lbl);
+          div.addEventListener('click', () => selectTile(key));
+        } else {
+          div.addEventListener('click', () => selectTile(key));
+        }
+        $grid.appendChild(div);
+      }
+    }
+  }
 
-    let fieldOpts = '';
-    FB_FIELDS.forEach(f => {
-      const sel = (rule.field || 'scene') === f.v ? ' selected' : '';
-      fieldOpts += `<option value="${f.v}"${sel}>${f.t}</option>`;
-    });
+  // ===== TILE SELECTION =====
+  function selectTile(key) {
+    currentKey = key;
+    renderGrid();
+    refreshEditor();
+  }
 
-    div.innerHTML = `
-      <div style="display:flex;gap:4px;margin-bottom:6px;">
-        <select class="fb-field" style="flex:1;padding:4px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:11px;">${fieldOpts}</select>
-        <select class="fb-op" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:11px;">
-          <option value="eq"${(rule.op||'eq')==='eq'?' selected':''}>Equals</option>
-          <option value="neq"${rule.op==='neq'?' selected':''}>Not Equals</option>
-          <option value="true"${rule.op==='true'?' selected':''}>Is True</option>
-          <option value="false"${rule.op==='false'?' selected':''}>Is False</option>
-          <option value="contains"${rule.op==='contains'?' selected':''}>Contains</option>
-        </select>
-      </div>
-      <div class="fb-custom-wrap" style="display:${(rule.field||'scene')==='custom'?'':'none'};margin-bottom:6px;">
-        <input class="fb-custom-field" type="text" value="${rule.customField||''}" placeholder="e.g. mutes.Mic_Aux" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:11px;">
-      </div>
-      <div class="fb-val-wrap" style="display:${(rule.op||'eq')==='true'||(rule.op||'eq')==='false'?'none':''};margin-bottom:6px;">
-        <input class="fb-value" type="text" value="${rule.compareValue||''}" placeholder="e.g. Scene 2" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:11px;">
-      </div>
-      <div class="fb-colors" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;"></div>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <label style="font-size:10px;color:var(--text-secondary);margin:0;">Pulse</label>
-        <select class="fb-pulse" style="padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:11px;">
-          <option value="true"${rule.pulse!==false?' selected':''}>Yes</option>
-          <option value="false"${rule.pulse===false?' selected':''}>No</option>
-        </select>
-        <button class="fb-remove" style="margin-left:auto;padding:2px 8px;border:1px solid var(--accent-red);border-radius:4px;background:transparent;color:var(--accent-red);cursor:pointer;font-size:11px;">Remove</button>
-      </div>
-    `;
+  function showEmptyEditor() {
+    $editorEmpty.style.display = '';
+    $editorForm.style.display = 'none';
+  }
 
-    // Build color swatches
-    const colorsEl = div.querySelector('.fb-colors');
-    const selectedTrueColor = rule.trueColor || 'green';
+  function refreshEditor() {
+    if (!currentKey || !currentPage) { showEmptyEditor(); return; }
+    const cfg = ((buttons[currentPage] || {})[currentKey]) || null;
+    if (!cfg) {
+      // Empty tile — show editor with defaults
+      $editorEmpty.style.display = 'none';
+      $editorForm.style.display = '';
+      populateEditor({
+        label: '', color: 'default', icon: '',
+        actions: [], feedbacks: [],
+      });
+      return;
+    }
+    $editorEmpty.style.display = 'none';
+    $editorForm.style.display = '';
+    populateEditor(cfg);
+  }
+
+  function populateEditor(cfg) {
+    // Preview
+    $previewLabel.textContent = cfg.label || '';
+    $previewIcon.textContent = cfg.icon || '';
+    updatePreviewColor(cfg.color || 'default');
+
+    // Label
+    $edLabel.value = cfg.label || '';
+
+    // Colors
+    $edColors.innerHTML = '';
     COLORS.forEach((c) => {
       const sw = document.createElement('div');
-      sw.className = 'color-swatch' + (c === selectedTrueColor ? ' selected' : '');
-      sw.style.cssText = 'width:22px;height:22px;border-radius:4px;cursor:pointer;border:2px solid transparent;';
+      sw.className = 'color-swatch' + (c === (cfg.color || 'default') ? ' selected' : '');
+      sw.style.background = COLOR_HEX[c];
+      sw.dataset.color = c;
+      sw.addEventListener('click', () => {
+        $edColors.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        sw.classList.add('selected');
+        updatePreviewColor(c);
+        liveSave();
+      });
+      $edColors.appendChild(sw);
+    });
+
+    // Icons
+    $edIcons.innerHTML = '';
+    ICONS.forEach((ic) => {
+      const sw = document.createElement('div');
+      sw.className = 'icon-opt' + (ic.cls ? ' ' + ic.cls : '') + ((ic.v === (cfg.icon || '')) ? ' selected' : '');
+      sw.textContent = ic.v || '—';
+      sw.dataset.icon = ic.v;
+      sw.addEventListener('click', () => {
+        $edIcons.querySelectorAll('.icon-opt').forEach(s => s.classList.remove('selected'));
+        sw.classList.add('selected');
+        $previewIcon.textContent = ic.v;
+        liveSave();
+      });
+      $edIcons.appendChild(sw);
+    });
+
+    // Actions
+    buildActionsList(cfg.actions || []);
+
+    // Feedbacks
+    buildFeedbacksList(cfg.feedbacks || []);
+  }
+
+  function updatePreviewColor(colorKey) {
+    const hex = COLOR_HEX[colorKey] || COLOR_HEX.default;
+    document.getElementById('btn-preview').style.background = hex;
+  }
+
+  // ===== ACTIONS LIST =====
+  function buildActionsList(actions) {
+    $actionsList.innerHTML = '';
+    actions.forEach((act, i) => addActionRow(act, i));
+  }
+
+  function addActionRow(act, index) {
+    act = act || {};
+    const div = document.createElement('div');
+    div.className = 'rule-row';
+    div.dataset.idx = index;
+
+    // Head: action type
+    let opts = '';
+    ACTION_TYPES.forEach(a => {
+      const sel = (act.type || 'set_scene') === a.v ? ' selected' : '';
+      opts += `<option value="${a.v}"${sel}>${a.t}</option>`;
+    });
+    div.innerHTML = `<div class="rule-row-head">
+      <select class="act-type">${opts}</select>
+      <button class="rule-remove">&times;</button>
+    </div><div class="rule-row-body"></div>`;
+
+    const head = div.querySelector('.rule-row-head');
+    const body = div.querySelector('.rule-row-body');
+
+    head.querySelector('.rule-remove').addEventListener('click', () => { div.remove(); liveSave(); });
+    head.querySelector('.act-type').addEventListener('change', () => {
+      rebuildActionBody(body, head.querySelector('.act-type').value, act);
+      liveSave();
+    });
+
+    rebuildActionBody(body, act.type || 'set_scene', act);
+    $actionsList.appendChild(div);
+  }
+
+  function rebuildActionBody(body, type, act) {
+    body.innerHTML = '';
+    const spec = ACTION_TYPES.find(a => a.v === type) || { fields: [] };
+    spec.fields.forEach((f) => {
+      if (f === 'scene') {
+        const sel = document.createElement('select');
+        sel.className = 'act-scene';
+        sel.innerHTML = '<option value="">(current)</option>';
+        (window._scenes || []).forEach(s => {
+          const o = document.createElement('option');
+          o.value = s; o.textContent = s;
+          if (act.scene === s) o.selected = true;
+          sel.appendChild(o);
+        });
+        sel.addEventListener('change', liveSave);
+        body.appendChild(sel);
+      } else if (f === 'source') {
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.className = 'act-source'; inp.placeholder = 'Source name';
+        inp.value = act.source || '';
+        inp.addEventListener('input', liveSave);
+        body.appendChild(inp);
+      } else if (f === 'muted' || f === 'visible' || f === 'locked') {
+        const sel = document.createElement('select');
+        sel.className = 'act-' + f;
+        const val = act[f];
+        const isOn = f === 'muted' ? val === true || val === 'true' : val !== false && val !== 'false';
+        sel.innerHTML = `<option value="true"${isOn ? ' selected' : ''}>${f === 'muted' ? 'Muted' : f === 'visible' ? 'Visible' : 'Locked'}</option><option value="false"${!isOn ? ' selected' : ''}>${f === 'muted' ? 'Unmuted' : f === 'visible' ? 'Hidden' : 'Unlocked'}</option>`;
+        sel.addEventListener('change', liveSave);
+        body.appendChild(sel);
+      } else if (f === 'text') {
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.className = 'act-text'; inp.placeholder = 'New text';
+        inp.value = act.text || '';
+        inp.addEventListener('input', liveSave);
+        body.appendChild(inp);
+      } else if (f === 'url') {
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.className = 'act-url'; inp.placeholder = 'https://...';
+        inp.value = act.url || '';
+        inp.addEventListener('input', liveSave);
+        body.appendChild(inp);
+      } else if (f === 'hotkey') {
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.className = 'act-hotkey'; inp.placeholder = 'Hotkey name';
+        inp.value = act.hotkey || '';
+        inp.addEventListener('input', liveSave);
+        body.appendChild(inp);
+      } else if (f === 'command') {
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.className = 'act-command'; inp.placeholder = 'OBS command';
+        inp.value = act.command || '';
+        inp.addEventListener('input', liveSave);
+        body.appendChild(inp);
+      }
+    });
+  }
+
+  document.getElementById('add-action').addEventListener('click', () => {
+    addActionRow({ type: 'set_scene' }, $actionsList.children.length);
+    liveSave();
+  });
+
+  // ===== FEEDBACKS LIST =====
+  function buildFeedbacksList(feedbacks) {
+    $feedbacksList.innerHTML = '';
+    feedbacks.forEach((fb, i) => addFeedbackRow(fb, i));
+  }
+
+  function addFeedbackRow(fb, index) {
+    fb = fb || {};
+    const div = document.createElement('div');
+    div.className = 'rule-row';
+    div.dataset.idx = index;
+
+    // Head: field + op
+    let fieldOpts = '';
+    FEEDBACK_FIELDS.forEach(f => {
+      const sel = (fb.field || 'scene') === f.v ? ' selected' : '';
+      fieldOpts += `<option value="${f.v}"${sel}>${f.t}</option>`;
+    });
+    let opOpts = '';
+    FEEDBACK_OPS.forEach(o => {
+      const sel = (fb.op || 'eq') === o.v ? ' selected' : '';
+      opOpts += `<option value="${o.v}"${sel}>${o.t}</option>`;
+    });
+
+    div.innerHTML = `<div class="rule-row-head">
+      <select class="fb-field">${fieldOpts}</select>
+      <select class="fb-op">${opOpts}</select>
+      <button class="rule-remove">&times;</button>
+    </div>
+    <div class="rule-row-body">
+      <input class="fb-custom-field" type="text" placeholder="e.g. mutes.Mic_Aux" style="display:${fb.field === 'custom' ? '' : 'none'};">
+      <input class="fb-value" type="text" placeholder="Compare value" style="display:${fb.op === 'true' || fb.op === 'false' ? 'none' : ''};">
+    </div>
+    <div class="rule-colors"></div>`;
+
+    const head = div.querySelector('.rule-row-head');
+    const body = div.querySelector('.rule-row-body');
+    const colorsEl = div.querySelector('.rule-colors');
+
+    // Colors
+    const selectedColor = fb.trueColor || 'green';
+    COLORS.forEach((c) => {
+      const sw = document.createElement('div');
+      sw.className = 'color-swatch' + (c === selectedColor ? ' selected' : '');
       sw.style.background = COLOR_HEX[c];
       sw.dataset.color = c;
       sw.addEventListener('click', () => {
         colorsEl.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
         sw.classList.add('selected');
+        liveSave();
       });
       colorsEl.appendChild(sw);
     });
 
-    // Event listeners
-    div.querySelector('.fb-field').addEventListener('change', (e) => {
-      div.querySelector('.fb-custom-wrap').style.display = e.target.value === 'custom' ? '' : 'none';
+    // Events
+    head.querySelector('.rule-remove').addEventListener('click', () => { div.remove(); liveSave(); });
+    head.querySelector('.fb-field').addEventListener('change', () => {
+      const v = head.querySelector('.fb-field').value;
+      div.querySelector('.fb-custom-field').style.display = v === 'custom' ? '' : 'none';
+      liveSave();
     });
-    div.querySelector('.fb-op').addEventListener('change', (e) => {
-      const op = e.target.value;
-      div.querySelector('.fb-val-wrap').style.display = (op === 'true' || op === 'false') ? 'none' : '';
+    head.querySelector('.fb-op').addEventListener('change', () => {
+      const v = head.querySelector('.fb-op').value;
+      div.querySelector('.fb-value').style.display = (v === 'true' || v === 'false') ? 'none' : '';
+      liveSave();
     });
-    div.querySelector('.fb-remove').addEventListener('click', () => div.remove());
+    body.querySelector('.fb-custom-field').addEventListener('input', liveSave);
+    body.querySelector('.fb-value').addEventListener('input', liveSave);
 
-    fbRulesEl.appendChild(div);
+    $feedbacksList.appendChild(div);
   }
 
-  fbAddRule.addEventListener('click', () => addFbRule());
-
-  function getFbRules() {
-    const rules = [];
-    fbRulesEl.querySelectorAll('.fb-rule').forEach((div) => {
-      const selColor = div.querySelector('.fb-colors .color-swatch.selected');
-      rules.push({
-        field: div.querySelector('.fb-field').value,
-        customField: div.querySelector('.fb-custom-field').value.trim(),
-        op: div.querySelector('.fb-op').value,
-        compareValue: div.querySelector('.fb-value').value.trim(),
-        trueColor: selColor ? selColor.dataset.color : 'green',
-        pulse: div.querySelector('.fb-pulse').value === 'true',
-      });
-    });
-    return rules;
-  }
-
-  // ---- Grid Settings ----
-  document.getElementById('grid-apply').addEventListener('click', () => {
-    const r = parseInt(document.getElementById('grid-rows').value) || 4;
-    const c = parseInt(document.getElementById('grid-cols').value) || 8;
-    gridRows = Math.max(1, Math.min(20, r));
-    gridCols = Math.max(1, Math.min(20, c));
-    db.ref('settings/grid').set({ rows: gridRows, cols: gridCols });
+  document.getElementById('add-feedback').addEventListener('click', () => {
+    addFeedbackRow({ field: 'scene', op: 'eq', trueColor: 'green', pulse: false }, $feedbacksList.children.length);
+    liveSave();
   });
 
-  // ---- Listeners ----
-  function startListeners() {
-    db.ref('settings/grid').on('value', (snap) => {
-      const g = snap.val();
-      if (g) {
-        gridRows = g.rows || 4;
-        gridCols = g.cols || 8;
-        document.getElementById('grid-rows').value = gridRows;
-        document.getElementById('grid-cols').value = gridCols;
-      }
-      renderGrid();
-    });
-
-    db.ref('buttons').on('value', (snap) => {
-      buttons = snap.val() || {};
-      if (!buttons[currentPage]) currentPage = 'page1';
-      renderTabs();
-      renderGrid();
-    });
-
-    db.ref('status').on('value', (snap) => {
-      status = snap.val() || {};
-      updateStatusStrip();
-    });
-
-    db.ref('.info/connected').on('value', (snap) => {
-      const connected = snap.val();
-      dotFirebase.className = 'status-dot ' + (connected ? 'green' : 'red');
-      valFirebase.textContent = connected ? 'OK' : 'DOWN';
-    });
+  // ===== LIVE SAVE =====
+  let saveTimeout = null;
+  function liveSave() {
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(doSave, 300);
   }
 
-  // ---- Status Strip ----
-  function updateStatusStrip() {
-    valScene.textContent = status.scene || '--';
-    if (status.streaming) { dotStream.className = 'status-dot green'; valStream.textContent = 'LIVE'; }
-    else { dotStream.className = 'status-dot red'; valStream.textContent = 'OFF'; }
-    if (status.recording) {
-      dotRecord.className = status.paused ? 'status-dot yellow' : 'status-dot red';
-      valRecord.textContent = status.paused ? 'PAUSED' : 'REC';
-    } else { dotRecord.className = 'status-dot red'; valRecord.textContent = 'OFF'; }
-    const connections = status.connections || {};
-    const bk = Object.keys(connections);
-    if (bk.length > 0 && connections[bk[0]] && connections[bk[0]].connected) {
-      dotObs.className = 'status-dot green'; valObs.textContent = 'Connected';
-    } else { dotObs.className = 'status-dot red'; valObs.textContent = 'No Bridge'; }
-  }
+  function doSave() {
+    if (!currentPage) return;
+    const color = ($edColors.querySelector('.color-swatch.selected') || {}).dataset || {};
+    const iconEl = ($edIcons.querySelector('.icon-opt.selected') || {}).dataset || {};
 
-  // ---- Tabs ----
-  function renderTabs() {
-    pageTabsEl.innerHTML = '';
-    const pages = Object.keys(buttons).sort();
-    pages.forEach((pid) => {
-      const tab = document.createElement('button');
-      tab.className = 'page-tab' + (pid === currentPage ? ' active' : '');
-      tab.textContent = pid.replace('page', 'Page ');
-      tab.addEventListener('click', () => { currentPage = pid; renderTabs(); renderGrid(); });
-      pageTabsEl.appendChild(tab);
-    });
-    const addBtn = document.createElement('button');
-    addBtn.className = 'page-tab-add';
-    addBtn.textContent = '+';
-    addBtn.addEventListener('click', () => {
-      const next = 'page' + (pages.length + 1);
-      db.ref('buttons/' + next).set({});
-    });
-    pageTabsEl.appendChild(addBtn);
-  }
-
-  // ---- Grid ----
-  function renderGrid() {
-    buttonGrid.innerHTML = '';
-    const pageButtons = buttons[currentPage] || {};
-    buttonGrid.style.setProperty('--cols', gridCols);
-
-    for (let r = 0; r < gridRows; r++) {
-      for (let c = 0; c < gridCols; c++) {
-        const key = r + '_' + c;
-        const cfg = pageButtons[key];
-        const btn = document.createElement('button');
-        const colorClass = (cfg && cfg.label) ? 'color-' + (cfg.color || 'default') : 'empty';
-        btn.className = 'deck-btn admin-mode ' + colorClass;
-        btn.dataset.row = r;
-        btn.dataset.col = c;
-
-        if (cfg && cfg.label) {
-          if (cfg.icon) {
-            const iconEl = document.createElement('span');
-            iconEl.className = 'btn-icon';
-            iconEl.textContent = cfg.icon;
-            btn.appendChild(iconEl);
-          }
-          const labelEl = document.createElement('span');
-          labelEl.className = 'btn-label';
-          labelEl.textContent = cfg.label;
-          btn.appendChild(labelEl);
-
-          // Edit overlay
-          const overlay = document.createElement('span');
-          overlay.className = 'edit-overlay';
-          overlay.textContent = '✎';
-          btn.appendChild(overlay);
-        } else {
-          const plus = document.createElement('span');
-          plus.className = 'btn-label';
-          plus.textContent = '+';
-          plus.style.opacity = '0.3';
-          btn.appendChild(plus);
-        }
-
-        btn.addEventListener('click', () => openEditor(r, c));
-        btn.addEventListener('contextmenu', (e) => {
-          e.preventDefault();
-          ctxTarget = { row: r, col: c };
-          showCtxMenu(e.pageX, e.pageY, r, c);
-        });
-        buttonGrid.appendChild(btn);
-      }
-    }
-  }
-
-  // ---- Context Menu ----
-  const ctxMenu = document.getElementById('ctx-menu');
-
-  function showCtxMenu(x, y, row, col) {
-    const key = row + '_' + col;
-    const cfg = ((buttons[currentPage] || {})[key]) || null;
-    const hasBtn = cfg && cfg.label;
-
-    ctxMenu.querySelector('[data-action="copy"]').style.display = hasBtn ? '' : 'none';
-    ctxMenu.querySelector('[data-action="cut"]').style.display = hasBtn ? '' : 'none';
-    ctxMenu.querySelector('[data-action="paste"]').style.display = (clipboard && !hasBtn) ? '' : 'none';
-    ctxMenu.querySelector('[data-action="delete"]').style.display = hasBtn ? '' : 'none';
-
-    ctxMenu.style.left = x + 'px';
-    ctxMenu.style.top = y + 'px';
-    ctxMenu.classList.remove('hidden');
-  }
-
-  document.addEventListener('click', () => ctxMenu.classList.add('hidden'));
-
-  ctxMenu.querySelectorAll('.ctx-item').forEach((item) => {
-    item.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!ctxTarget) return;
-      const key = ctxTarget.row + '_' + ctxTarget.col;
-      const action = item.dataset.action;
-
-      if (action === 'copy') {
-        clipboard = JSON.parse(JSON.stringify(((buttons[currentPage] || {})[key]) || null));
-        cutSource = null;
-      }
-
-      if (action === 'cut') {
-        clipboard = JSON.parse(JSON.stringify(((buttons[currentPage] || {})[key]) || null));
-        cutSource = { page: currentPage, key: key };
-      }
-
-      if (action === 'paste' && clipboard) {
-        db.ref('buttons/' + currentPage + '/' + key).set(JSON.parse(JSON.stringify(clipboard)));
-        if (cutSource) {
-          db.ref('buttons/' + cutSource.page + '/' + cutSource.key).remove();
-          cutSource = null;
-        }
-        clipboard = null;
-      }
-
-      if (action === 'delete') {
-        db.ref('buttons/' + currentPage + '/' + key).remove();
-      }
-
-      ctxMenu.classList.add('hidden');
-    });
-  });
-
-  // ---- Color Grid ----
-  function buildColorGrid() {
-    const grid = document.getElementById('color-grid');
-    grid.innerHTML = '';
-    COLORS.forEach((c) => {
-      const swatch = document.createElement('div');
-      swatch.className = 'color-swatch';
-      swatch.style.background = COLOR_HEX[c];
-      swatch.dataset.color = c;
-      swatch.addEventListener('click', () => {
-        grid.querySelectorAll('.color-swatch').forEach((s) => s.classList.remove('selected'));
-        swatch.classList.add('selected');
+    // Gather actions
+    const actions = [];
+    $actionsList.querySelectorAll('.rule-row').forEach((row) => {
+      const type = row.querySelector('.act-type').value;
+      const act = { type };
+      const spec = ACTION_TYPES.find(a => a.v === type) || { fields: [] };
+      spec.fields.forEach((f) => {
+        if (f === 'scene') act.scene = (row.querySelector('.act-scene') || {}).value || '';
+        else if (f === 'source') act.source = (row.querySelector('.act-source') || {}).value || '';
+        else if (f === 'text') act.text = (row.querySelector('.act-text') || {}).value || '';
+        else if (f === 'url') act.url = (row.querySelector('.act-url') || {}).value || '';
+        else if (f === 'hotkey') act.hotkey = (row.querySelector('.act-hotkey') || {}).value || '';
+        else if (f === 'command') act.command = (row.querySelector('.act-command') || {}).value || '';
+        else if (f === 'muted') act.muted = (row.querySelector('.act-muted') || {}).value === 'true';
+        else if (f === 'visible') act.visible = (row.querySelector('.act-visible') || {}).value === 'true';
+        else if (f === 'locked') act.locked = (row.querySelector('.act-locked') || {}).value === 'true';
       });
-      grid.appendChild(swatch);
+      actions.push(act);
     });
-  }
 
-  // ---- Icon Grid ----
-  function buildIconGrid() {
-    const grid = document.getElementById('icon-grid');
-    grid.innerHTML = '';
-
-    // No icon option
-    const none = document.createElement('div');
-    none.className = 'icon-option';
-    none.textContent = '✕';
-    none.style.opacity = '0.4';
-    none.dataset.icon = '';
-    none.addEventListener('click', () => {
-      grid.querySelectorAll('.icon-option').forEach((s) => s.classList.remove('selected'));
-      none.classList.add('selected');
-    });
-    grid.appendChild(none);
-
-    ICONS.forEach((ic) => {
-      const el = document.createElement('div');
-      el.className = 'icon-option';
-      el.textContent = ic;
-      el.dataset.icon = ic;
-      el.addEventListener('click', () => {
-        grid.querySelectorAll('.icon-option').forEach((s) => s.classList.remove('selected'));
-        el.classList.add('selected');
+    // Gather feedbacks
+    const feedbacks = [];
+    $feedbacksList.querySelectorAll('.rule-row').forEach((row) => {
+      const field = row.querySelector('.fb-field').value;
+      const op = row.querySelector('.fb-op').value;
+      const selColor = (row.querySelector('.rule-colors .color-swatch.selected') || {}).dataset || {};
+      feedbacks.push({
+        field,
+        customField: row.querySelector('.fb-custom-field').value.trim(),
+        op,
+        compareValue: row.querySelector('.fb-value').value.trim(),
+        trueColor: selColor.color || 'green',
       });
-      grid.appendChild(el);
-    });
-  }
-
-  // ---- Editor ----
-  function openEditor(row, col) {
-    editingKey = row + '_' + col;
-    const cfg = ((buttons[currentPage] || {})[editingKey]) || {};
-
-    edLabel.value  = cfg.label || '';
-    edAction.value = cfg.action || 'SetCurrentProgramScene';
-    edValue.value  = cfg.value || '';
-    edInput.value  = cfg.input || '';
-    edScene.value  = cfg.scene || '';
-    edItem.value   = cfg.item || '';
-    edFilter.value = cfg.filter || '';
-
-    // Feedback fields
-    const fb = cfg.feedback || {};
-    fbRulesEl.innerHTML = '';
-    fbRuleCount = 0;
-    if (!fb.type) {
-      edFeedbackType.value = '';
-      feedbackBuiltin.style.display = 'none';
-      feedbackCustom.style.display = 'none';
-    } else if (fb.type === 'builtin') {
-      edFeedbackType.value = 'builtin';
-      feedbackBuiltin.style.display = '';
-      feedbackCustom.style.display = 'none';
-    } else if (fb.type === 'custom') {
-      edFeedbackType.value = 'custom';
-      feedbackBuiltin.style.display = 'none';
-      feedbackCustom.style.display = '';
-      (fb.rules || []).forEach(r => addFbRule(r));
-    }
-
-    // Select color
-    document.querySelectorAll('.color-swatch').forEach((s) => {
-      s.classList.toggle('selected', s.dataset.color === (cfg.color || 'default'));
     });
 
-    // Select icon
-    document.querySelectorAll('.icon-option').forEach((s) => {
-      s.classList.toggle('selected', s.dataset.icon === (cfg.icon || ''));
-    });
-
-    adminPanel.classList.add('open');
-  }
-
-  function closeEditor() {
-    adminPanel.classList.remove('open');
-    editingKey = null;
-  }
-
-  btnClose.addEventListener('click', closeEditor);
-
-  btnSave.addEventListener('click', () => {
-    if (!editingKey) return;
-    const selectedColor = document.querySelector('.color-swatch.selected');
-    const selectedIcon  = document.querySelector('.icon-option.selected');
-
-    const feedbackType = edFeedbackType.value;
-    let feedback = null;
-    if (feedbackType === 'builtin') {
-      feedback = { type: 'builtin' };
-    } else if (feedbackType === 'custom') {
-      feedback = { type: 'custom', rules: getFbRules() };
-    }
-
-    const data = {
-      label:  edLabel.value.trim(),
-      action: edAction.value,
-      value:  edValue.value.trim(),
-      input:  edInput.value.trim(),
-      scene:  edScene.value.trim(),
-      item:   edItem.value.trim(),
-      filter: edFilter.value.trim(),
-      color:  selectedColor ? selectedColor.dataset.color : 'default',
-      icon:   selectedIcon ? selectedIcon.dataset.icon : '',
-      feedback: feedback,
+    const cfg = {
+      label: $edLabel.value.trim(),
+      color: color.color || 'default',
+      icon: iconEl.icon || '',
+      actions,
+      feedbacks,
     };
-    db.ref('buttons/' + currentPage + '/' + editingKey).set(data);
-    closeEditor();
+
+    const path = `buttons/${currentPage}/${currentKey}`;
+    db.ref(path).set(cfg);
+  }
+
+  // ===== NAV =====
+  document.querySelectorAll('.sidebar-link[data-section]').forEach((link) => {
+    link.addEventListener('click', () => {
+      document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+      const sec = link.dataset.section;
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('section-active'));
+      document.getElementById('section-' + sec).classList.add('section-active');
+      document.querySelector('.topbar-title').textContent = link.querySelector('span:last-child').textContent;
+      if (sec === 'pages') renderPagesList();
+    });
   });
 
-  btnDelete.addEventListener('click', () => {
-    if (!editingKey) return;
-    if (!confirm('Delete this button?')) return;
-    db.ref('buttons/' + currentPage + '/' + editingKey).remove();
-    closeEditor();
+  // ===== PAGES MANAGER =====
+  function renderPagesList() {
+    const list = document.getElementById('pages-list');
+    list.innerHTML = '';
+    const sorted = Object.keys(pages).sort((a, b) => (pages[a].order || 0) - (pages[b].order || 0));
+    sorted.forEach((pid) => {
+      const div = document.createElement('div');
+      div.className = 'page-item';
+      div.innerHTML = `
+        <input type="text" value="${pages[pid].name || pid}" class="page-name" data-pid="${pid}">
+        <button class="page-item-btn" data-action="up" data-pid="${pid}">&#9650;</button>
+        <button class="page-item-btn" data-action="down" data-pid="${pid}">&#9660;</button>
+        <button class="page-item-btn danger" data-action="delete" data-pid="${pid}">&times;</button>
+      `;
+      div.querySelector('.page-name').addEventListener('input', (e) => {
+        db.ref(`pages/${pid}/name`).set(e.target.value);
+      });
+      div.querySelector('[data-action="up"]').addEventListener('click', () => reorderPage(pid, -1));
+      div.querySelector('[data-action="down"]').addEventListener('click', () => reorderPage(pid, 1));
+      div.querySelector('[data-action="delete"]').addEventListener('click', () => deletePage(pid));
+      list.appendChild(div);
+    });
+  }
+
+  document.getElementById('add-page').addEventListener('click', () => {
+    const sorted = Object.keys(pages).sort((a, b) => (pages[a].order || 0) - (pages[b].order || 0));
+    const maxOrder = sorted.length ? (pages[sorted[sorted.length - 1]].order || 0) : 0;
+    const newId = 'page_' + Date.now();
+    db.ref(`pages/${newId}`).set({ name: `Page ${maxOrder + 1}`, order: maxOrder + 1 });
+  });
+
+  function reorderPage(pid, dir) {
+    const sorted = Object.keys(pages).sort((a, b) => (pages[a].order || 0) - (pages[b].order || 0));
+    const idx = sorted.indexOf(pid);
+    const swapIdx = idx + dir;
+    if (swapIdx < 0 || swapIdx >= sorted.length) return;
+    const a = pages[sorted[idx]], b = pages[sorted[swapIdx]];
+    db.ref(`pages/${sorted[idx]}/order`).set(b.order || 0);
+    db.ref(`pages/${sorted[swapIdx]}/order`).set(a.order || 0);
+  }
+
+  function deletePage(pid) {
+    if (!confirm(`Delete "${pages[pid].name || pid}"?`)) return;
+    db.ref(`pages/${pid}`).remove();
+    db.ref(`buttons/${pid}`).remove();
+    if (currentPage === pid) { currentPage = null; currentKey = null; showEmptyEditor(); renderGrid(); }
+  }
+
+  // ===== SETTINGS =====
+  document.getElementById('save-settings').addEventListener('click', () => {
+    const r = parseInt(document.getElementById('set-rows').value) || 4;
+    const c = parseInt(document.getElementById('set-cols').value) || 8;
+    const pin = document.getElementById('set-pin').value.trim();
+    db.ref('settings/grid').set({ rows: r, cols: c });
+    if (pin) db.ref('settings/pin').set(pin);
+    gridRows = r; gridCols = c;
+    $grid.style.gridTemplateColumns = `repeat(${c}, var(--button-w))`;
+    $gridSize.textContent = `${r}x${c}`;
+    renderGrid();
+  });
+
+  // ===== SCENE LIST (cached for action dropdowns) =====
+  window._scenes = [];
+  db.ref('status/scenes').on('value', (snap) => {
+    window._scenes = snap.val() || [];
   });
 
 })();

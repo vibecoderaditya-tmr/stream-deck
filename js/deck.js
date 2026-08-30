@@ -1,13 +1,12 @@
 /* =========================================================
    OBS Remote Director — Deck Page Logic
    ========================================================= */
-
 (function() {
   'use strict';
 
   // ---- Firebase Init ----
   firebase.initializeApp(FIREBASE_CONFIG);
-  const db   = firebase.database();
+  const db = firebase.database();
 
   // ---- DOM ----
   const authScreen   = document.getElementById('auth-screen');
@@ -17,8 +16,6 @@
   const authError    = document.getElementById('auth-error');
   const pageTabsEl   = document.getElementById('page-tabs');
   const buttonGrid   = document.getElementById('button-grid');
-
-  // Status elements
   const dotObs       = document.getElementById('dot-obs');
   const valObs       = document.getElementById('val-obs');
   const dotStream    = document.getElementById('dot-stream');
@@ -30,28 +27,16 @@
   const valScene     = document.getElementById('val-scene');
 
   // ---- State ----
-  let currentPage = 'page1';
-  let buttons     = {};  // { pageId: { "row_col": { ... } } }
+  let currentPage = null;
+  let pages       = {};   // { pageId: { name, order } }
+  let buttons     = {};   // { pageId: { "row_col": { ... } } }
   let status      = {};
-  let totalPages  = 1;
   let gridRows    = 4;
   let gridCols    = 8;
 
   function safeKey(name) {
     return String(name).replace(/\./g,'_').replace(/\$/g,'_').replace(/#/g,'_').replace(/\[/g,'_').replace(/\]/g,'_').replace(/\//g,'_');
   }
-
-  // ---- ICONS ----
-  const ICONS = [
-    '🎬','🎥','📺','📷','🖼','🎭','🎪','🎤',
-    '🔊','🔇','🔈','🔉','🎚','🎛','🎵','🎶',
-    '🔴','⏺','⏹','⏯','⏸','🟢','🟡','🔵',
-    '⬜','⬛','🔴','🟠','🟡','🟢','🔵','🟣',
-    '💡','⚡','🌟','✨','🎯','🚀','💻','📡',
-    '▶','⏸','⏹','⏭','⏮','⏩','⏪','🔀',
-    '🔁','🔂','💾','📂','📝','⚙','🔧','🔨',
-    '👤','👥','🏷','📌','📎','🔗','🔒','🔓',
-  ];
 
   // ---- Auth ----
   pinSubmit.addEventListener('click', doAuth);
@@ -71,35 +56,33 @@
 
   // ---- Listeners ----
   function startListeners() {
-    // Listen for grid settings
     db.ref('settings/grid').on('value', (snap) => {
       const g = snap.val();
-      if (g) {
-        gridRows = g.rows || 4;
-        gridCols = g.cols || 8;
-      }
+      if (g) { gridRows = g.rows || 4; gridCols = g.cols || 8; }
       renderGrid();
     });
 
-    // Listen for buttons config
-    db.ref('buttons').on('value', (snap) => {
-      buttons = snap.val() || {};
-      if (!buttons[currentPage]) {
-        currentPage = 'page1';
+    db.ref('pages').on('value', (snap) => {
+      pages = snap.val() || {};
+      if (!currentPage || !pages[currentPage]) {
+        const keys = Object.keys(pages);
+        currentPage = keys.length ? keys.sort((a, b) => (pages[a].order || 0) - (pages[b].order || 0))[0] : null;
       }
-      totalPages = Math.max(1, Object.keys(buttons).length);
       renderTabs();
       renderGrid();
     });
 
-    // Listen for status
+    db.ref('buttons').on('value', (snap) => {
+      buttons = snap.val() || {};
+      renderGrid();
+    });
+
     db.ref('status').on('value', (snap) => {
       status = snap.val() || {};
       updateStatusStrip();
       updateButtonHighlights();
     });
 
-    // Firebase connection state
     db.ref('.info/connected').on('value', (snap) => {
       const connected = snap.val();
       dotFirebase.className = 'status-dot ' + (connected ? 'green' : 'red');
@@ -109,10 +92,7 @@
 
   // ---- Status Strip ----
   function updateStatusStrip() {
-    // Scene
     valScene.textContent = status.scene || '--';
-
-    // Streaming
     if (status.streaming) {
       dotStream.className = 'status-dot green';
       valStream.textContent = 'LIVE';
@@ -120,8 +100,6 @@
       dotStream.className = 'status-dot red';
       valStream.textContent = 'OFF';
     }
-
-    // Recording
     if (status.recording) {
       dotRecord.className = status.paused ? 'status-dot yellow' : 'status-dot red';
       valRecord.textContent = status.paused ? 'PAUSED' : 'REC';
@@ -129,8 +107,6 @@
       dotRecord.className = 'status-dot red';
       valRecord.textContent = 'OFF';
     }
-
-    // OBS bridge connection
     const connections = status.connections || {};
     const bridgeKeys = Object.keys(connections);
     if (bridgeKeys.length > 0) {
@@ -151,11 +127,11 @@
   // ---- Page Tabs ----
   function renderTabs() {
     pageTabsEl.innerHTML = '';
-    const pages = Object.keys(buttons).sort();
-    pages.forEach((pid) => {
+    const sorted = Object.keys(pages).sort((a, b) => (pages[a].order || 0) - (pages[b].order || 0));
+    sorted.forEach((pid) => {
       const tab = document.createElement('button');
       tab.className = 'page-tab' + (pid === currentPage ? ' active' : '');
-      tab.textContent = pid.replace('page', 'Page ');
+      tab.textContent = pages[pid].name || pid;
       tab.addEventListener('click', () => {
         currentPage = pid;
         renderTabs();
@@ -163,23 +139,12 @@
       });
       pageTabsEl.appendChild(tab);
     });
-
-    // Add page button
-    const addBtn = document.createElement('button');
-    addBtn.className = 'page-tab-add';
-    addBtn.textContent = '+';
-    addBtn.title = 'Add page';
-    addBtn.addEventListener('click', () => {
-      const next = 'page' + (pages.length + 1);
-      db.ref('buttons/' + next).set({});
-    });
-    pageTabsEl.appendChild(addBtn);
   }
 
   // ---- Button Grid ----
   function renderGrid() {
     buttonGrid.innerHTML = '';
-    const pageButtons = buttons[currentPage] || {};
+    const pageButtons = (currentPage && buttons[currentPage]) || {};
     buttonGrid.style.setProperty('--cols', gridCols);
 
     for (let r = 0; r < gridRows; r++) {
@@ -187,7 +152,9 @@
         const key = r + '_' + c;
         const cfg = pageButtons[key];
         if (cfg && cfg.label) {
-          const btn = createDeckButton(cfg, r, c);
+          const btn = createDeckButton(cfg);
+          btn.dataset.row = r;
+          btn.dataset.col = c;
           buttonGrid.appendChild(btn);
         } else {
           const empty = document.createElement('div');
@@ -198,12 +165,9 @@
     }
   }
 
-  function createDeckButton(cfg, row, col) {
+  function createDeckButton(cfg) {
     const btn = document.createElement('button');
-    const colorClass = 'color-' + (cfg.color || 'default');
-    btn.className = 'deck-btn ' + colorClass;
-    btn.dataset.row = row;
-    btn.dataset.col = col;
+    btn.className = 'deck-btn color-' + (cfg.color || 'default');
 
     if (cfg.icon) {
       const iconEl = document.createElement('span');
@@ -217,52 +181,33 @@
     labelEl.textContent = cfg.label || '';
     btn.appendChild(labelEl);
 
-    // Live indicator
-    if (cfg.action === 'SetCurrentProgramScene' && cfg.value === status.scene) {
-      btn.classList.add('is-live');
-    }
-    if (cfg.action === 'ToggleStream' || cfg.action === 'StartStream') {
-      if (status.streaming) btn.classList.add('is-live');
-    }
-    if (cfg.action === 'ToggleRecord' || cfg.action === 'StartRecord') {
-      if (status.recording) btn.classList.add('is-live');
-    }
-    // Mute state coloring
-    if (cfg.action === 'SetInputMute' || cfg.action === 'ToggleInputMute') {
-      const inputName = cfg.input || cfg.value;
-      if (inputName && status.mutes && status.mutes[safeKey(inputName)] !== undefined) {
-        if (status.mutes[safeKey(inputName)]) {
-          btn.classList.add('color-red');
-        } else {
-          btn.classList.add('color-green');
-        }
-      }
-    }
-
-    btn.addEventListener('click', () => sendCommand(cfg));
-
+    btn.addEventListener('click', () => sendButtonActions(cfg));
     return btn;
   }
 
-  // ---- Send Command ----
-  function sendCommand(cfg) {
-    const cmd = {
-      action: cfg.action,
-      value: cfg.value || null,
-      requestedBy: 'user',
-      ts: Date.now(),
-    };
-
-    // Extra fields
-    if (cfg.input)    cmd.input = cfg.input;
-    if (cfg.scene)    cmd.scene = cfg.scene;
-    if (cfg.item)     cmd.item = cfg.item;
-    if (cfg.filter)   cmd.filter = cfg.filter;
-    if (cfg.source)   cmd.source = cfg.source;
-    if (cfg.settings) cmd.settings = cfg.settings;
-    if (cfg.extra)    cmd.extra = cfg.extra;
-
-    db.ref('commands/latest').set(cmd);
+  // ---- Send Actions ----
+  function sendButtonActions(cfg) {
+    const actions = cfg.actions || [];
+    if (!actions.length) return;
+    actions.forEach((act, i) => {
+      const delay = i * 500; // stagger by 500ms
+      setTimeout(() => {
+        const cmd = {
+          action: act.type || act.action,
+          ts: Date.now(),
+        };
+        if (act.scene)      cmd.scene = act.scene;
+        if (act.source)     cmd.source = act.source;
+        if (act.text)       cmd.text = act.text;
+        if (act.url)        cmd.url = act.url;
+        if (act.hotkey)     cmd.hotkey = act.hotkey;
+        if (act.command)    cmd.command = act.command;
+        if (act.muted !== undefined)  cmd.muted = act.muted;
+        if (act.visible !== undefined) cmd.visible = act.visible;
+        if (act.locked !== undefined)  cmd.locked = act.locked;
+        db.ref('commands/latest').set(cmd);
+      }, delay);
+    });
   }
 
   // ---- Update Button Highlights ----
@@ -271,88 +216,86 @@
     btns.forEach((btn) => {
       const row = parseInt(btn.dataset.row);
       const col = parseInt(btn.dataset.col);
+      if (isNaN(row) || isNaN(col)) return;
       const key = row + '_' + col;
       const cfg = ((buttons[currentPage] || {})[key]) || {};
+      const actions = cfg.actions || [];
+      const feedbacks = cfg.feedbacks || [];
 
-      // Reset to original color
-      btn.classList.remove('is-live', 'color-green', 'color-red', 'color-yellow', 'color-blue', 'color-purple', 'color-orange', 'color-cyan', 'color-pink', 'color-gray');
+      // Reset to base color
+      const allColorClasses = 'color-default color-green color-red color-yellow color-blue color-purple color-orange color-cyan color-pink color-gray';
+      allColorClasses.split(' ').forEach(c => btn.classList.remove(c));
+      btn.classList.remove('is-live');
       btn.classList.add('color-' + (cfg.color || 'default'));
 
-      // Built-in feedback
-      const action = cfg.action || '';
-      const value = cfg.value || '';
-
-      if (action === 'SetCurrentProgramScene' && value === status.scene) {
-        btn.classList.add('is-live');
-      }
-      if (action === 'SetCurrentPreviewScene' && value === status.preview) {
-        btn.classList.add('color-blue');
-      }
-      if (action === 'ToggleStream' || action === 'StartStream' || action === 'StopStream') {
-        if (status.streaming) btn.classList.add('is-live');
-      }
-      if (action === 'ToggleRecord' || action === 'StartRecord' || action === 'StopRecord') {
-        if (status.recording) btn.classList.add('is-live');
-      }
-      if (action === 'PauseRecord' || action === 'ResumeRecord') {
-        if (status.recording && status.paused) btn.classList.add('color-yellow');
-        else if (status.recording) btn.classList.add('is-live');
-      }
-      if (action === 'ToggleVirtualCam' || action === 'StartVirtualCam' || action === 'StopVirtualCam') {
-        if (status.virtualcam) btn.classList.add('is-live');
-      }
-      if (action === 'StartReplayBuffer' || action === 'StopReplayBuffer' || action === 'SaveReplayBuffer') {
-        if (status.replaybuffer) btn.classList.add('is-live');
-      }
-      if (action === 'SetStudioModeEnabled') {
-        if (status.studio_mode) btn.classList.add('is-live');
-      }
-      if (action === 'SetInputMute' || action === 'ToggleInputMute') {
-        const inputName = cfg.input || value;
-        if (inputName && status.mutes) {
-          const muted = status.mutes[safeKey(inputName)];
-          if (muted !== undefined) {
-            btn.className = 'deck-btn color-' + (muted ? 'red' : 'green');
-            if (muted) btn.classList.add('is-live');
+      // Built-in feedback from first action
+      if (actions.length > 0) {
+        const a = actions[0];
+        const t = a.type || a.action || '';
+        if (t === 'set_scene' && a.scene === status.scene) {
+          btn.classList.add('is-live');
+        }
+        if (t === 'set_preview_scene' && a.scene === status.preview) {
+          btn.classList.add('color-blue');
+        }
+        if (t === 'start_stream' || t === 'stop_stream' || t === 'toggle_stream') {
+          if (status.streaming) btn.classList.add('is-live');
+        }
+        if (t === 'start_record' || t === 'stop_record' || t === 'toggle_record') {
+          if (status.recording) btn.classList.add('is-live');
+        }
+        if (t === 'pause_record' || t === 'resume_record') {
+          if (status.recording && status.paused) btn.classList.add('color-yellow');
+          else if (status.recording) btn.classList.add('is-live');
+        }
+        if (t === 'start_virtual_cam' || t === 'stop_virtual_cam' || t === 'toggle_virtual_cam') {
+          if (status.virtualcam) btn.classList.add('is-live');
+        }
+        if (t === 'start_replay_buffer' || t === 'stop_replay_buffer' || t === 'save_replay') {
+          if (status.replaybuffer) btn.classList.add('is-live');
+        }
+        if (t === 'set_source_mute' || t === 'toggle_source_mute') {
+          const src = a.source || '';
+          if (src && status.mutes) {
+            const muted = status.mutes[safeKey(src)];
+            if (muted !== undefined) {
+              btn.className = 'deck-btn color-' + (muted ? 'red' : 'green');
+              if (muted) btn.classList.add('is-live');
+            }
           }
         }
-      }
-      if (action === 'TriggerStudioModeTransition' || action === 'TriggerTransition') {
-        if (status.transitioning) btn.classList.add('color-yellow');
-      }
-
-      // Custom feedback
-      const fb = cfg.feedback;
-      if (fb && fb.type === 'builtin') {
-        // Already handled above by action-based logic
-      } else if (fb && fb.type === 'custom' && fb.rules) {
-        let matched = false;
-        for (const rule of fb.rules) {
-          const fieldKey = rule.field === 'custom' ? rule.customField : rule.field;
-          const parts = (fieldKey || '').split('.');
-          let val = status;
-          for (const p of parts) { val = val ? val[p] : undefined; }
-
-          let condition = false;
-          const op = rule.op || 'eq';
-          const cmp = rule.compareValue || '';
-
-          if (op === 'eq') condition = (String(val) === cmp);
-          else if (op === 'neq') condition = (String(val) !== cmp);
-          else if (op === 'true') condition = !!val;
-          else if (op === 'false') condition = !val;
-          else if (op === 'contains') condition = String(val).includes(cmp);
-
-          if (condition) {
-            btn.classList.remove('is-live', 'color-green', 'color-red', 'color-yellow', 'color-blue', 'color-purple', 'color-orange', 'color-cyan', 'color-pink', 'color-gray');
-            btn.classList.add('color-' + (rule.trueColor || 'green'));
-            if (rule.pulse !== false) btn.classList.add('is-live');
-            matched = true;
-            break;
-          }
+        if (t === 'transition' || t === 'transition_stinger') {
+          if (status.transitioning) btn.classList.add('color-yellow');
         }
-        // If no rule matched, button keeps its base color (already set above)
       }
+
+      // Custom feedback rules — first match wins
+      let customMatched = false;
+      for (const fb of feedbacks) {
+        const fieldKey = fb.field === 'custom' ? fb.customField : fb.field;
+        const parts = (fieldKey || '').split('.');
+        let val = status;
+        for (const p of parts) { val = val ? val[p] : undefined; }
+
+        let condition = false;
+        const op = fb.op || 'eq';
+        const cmp = fb.compareValue || '';
+
+        if (op === 'eq') condition = (String(val) === cmp);
+        else if (op === 'neq') condition = (String(val) !== cmp);
+        else if (op === 'true') condition = !!val;
+        else if (op === 'false') condition = !val;
+        else if (op === 'contains') condition = String(val).includes(cmp);
+
+        if (condition) {
+          allColorClasses.split(' ').forEach(c => btn.classList.remove(c));
+          btn.classList.remove('is-live');
+          btn.classList.add('color-' + (fb.trueColor || 'green'));
+          customMatched = true;
+          break;
+        }
+      }
+      // If no feedback matched, button keeps base color (already set)
     });
   }
 
