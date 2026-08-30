@@ -8,11 +8,11 @@
 </head>
 <body>
 
-<!-- ===== AUTH SCREEN ===== -->
+<!-- ===== AUTH ===== -->
 <div id="auth-screen">
   <div class="auth-box">
     <h1>OBS Remote Director</h1>
-    <p>Admin Login — Enter PIN</p>
+    <p>Admin Login</p>
     <input type="password" id="pin-input" maxlength="8" placeholder="PIN" autofocus>
     <button id="pin-submit">Login</button>
     <div class="auth-error" id="auth-error"></div>
@@ -22,141 +22,188 @@
 <!-- ===== APP ===== -->
 <div id="app-screen" class="admin-layout">
 
-  <!-- Left Sidebar -->
-  <aside class="sidebar">
-    <div class="sidebar-logo">OBS<br>Director</div>
-    <nav class="sidebar-nav">
-      <a class="sidebar-link active" data-section="buttons">
-        <span class="sidebar-icon">&#9638;</span>
-        <span>Buttons</span>
-      </a>
-      <a class="sidebar-link" data-section="pages">
-        <span class="sidebar-icon">&#9776;</span>
-        <span>Pages</span>
-      </a>
-      <a class="sidebar-link" data-section="settings">
-        <span class="sidebar-icon">&#9881;</span>
-        <span>Settings</span>
-      </a>
-    </nav>
-    <div class="sidebar-bottom">
-      <a href="index.html" class="sidebar-link">
-        <span class="sidebar-icon">&#8592;</span>
-        <span>Deck</span>
-      </a>
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="left-header">
+      <div class="left-title">Buttons <span class="help-icon" title="Click a tile to configure it">?</span></div>
+      <p class="left-hint">Click a tile to set up its look and actions.</p>
     </div>
-  </aside>
 
-  <!-- Main Wrapper -->
-  <div class="main-wrap">
+    <!-- Page Nav -->
+    <div class="page-nav">
+      <button class="pn-btn" id="page-prev">&lt;</button>
+      <select id="page-select" class="pn-select"></select>
+      <button class="pn-btn" id="page-next">&gt;</button>
+      <button class="pn-btn" id="page-home" title="Go to page 1">&#8962;</button>
+      <button class="pn-btn" id="page-rename" title="Rename page">&#9998;</button>
+    </div>
 
-    <!-- Top Header -->
-    <header class="topbar">
-      <div class="topbar-title">Buttons</div>
-      <div class="topbar-status">
-        <span class="status-item"><span class="status-dot" id="dot-obs"></span> OBS</span>
-        <span class="status-item"><span class="status-dot" id="dot-firebase"></span> Firebase</span>
+    <!-- Grid -->
+    <div class="grid-scroll">
+      <div class="button-grid" id="button-grid"></div>
+    </div>
+
+    <!-- Grid Toolbar -->
+    <div class="grid-toolbar" id="grid-toolbar">
+      <button class="gt-btn" id="tb-copy" title="Copy">&#128203;</button>
+      <button class="gt-btn" id="tb-paste" title="Paste">&#128205;</button>
+      <button class="gt-btn" id="tb-move" title="Move">&#10021;</button>
+      <button class="gt-btn" id="tb-swap" title="Swap">&#8644;</button>
+      <button class="gt-btn gt-del" id="tb-delete" title="Delete">&#128465;</button>
+      <span class="gt-sep"></span>
+      <button class="gt-btn" id="tb-reset" title="Reset page">&#129513;</button>
+      <button class="gt-btn" id="tb-wipe" title="Wipe page">&#129529;</button>
+    </div>
+
+    <!-- Help Box -->
+    <div class="help-box">
+      Use arrow keys to navigate. Press Delete/Backspace to remove a button. Copy/Paste works for rearranging.
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+
+    <!-- Top Tabs -->
+    <div class="top-tabs">
+      <button class="top-tab active" data-tab="editor">
+        <span class="tab-icon">&#128241;</span>
+        <span id="editor-tab-label">Edit Button</span>
+      </button>
+      <button class="top-tab" data-tab="pages">
+        <span class="tab-icon">&#128210;</span> Pages
+      </button>
+      <button class="top-tab" data-tab="presets">
+        <span class="tab-icon">&#127873;</span> Presets
+      </button>
+    </div>
+
+    <!-- === TAB: Editor === -->
+    <div class="tab-content tab-active" id="tab-editor">
+
+      <!-- EMPTY STATE -->
+      <div class="editor-empty" id="editor-empty">
+        <div class="empty-preview" id="empty-preview-box">
+          <span class="empty-plus">+</span>
+          <p>Empty button</p>
+          <p class="empty-sub">Choose a button type to get started.</p>
+        </div>
+        <button class="btn-regular" id="btn-choose-regular">+ Regular button</button>
       </div>
-    </header>
 
-    <!-- Buttons Section -->
-    <section class="section section-active" id="section-buttons">
-      <div class="split-panel">
+      <!-- ASSIGNED STATE -->
+      <div class="editor-assigned" id="editor-assigned" style="display:none;">
 
-        <!-- Left: Grid -->
-        <div class="panel-left">
-          <div class="grid-toolbar">
-            <button class="page-arrow" id="page-prev">&lt;</button>
-            <select id="page-select" class="page-select"></select>
-            <button class="page-arrow" id="page-next">&gt;</button>
-            <span class="grid-size-display" id="grid-size-display">4x8</span>
-          </div>
-          <div class="grid-scroll">
-            <div class="button-grid" id="button-grid"></div>
+        <!-- Top bar: Delete / Test / Stop + Preview -->
+        <div class="editor-topbar">
+          <button class="etb-btn etb-del" id="editor-delete">Delete</button>
+          <button class="etb-btn etb-test" id="editor-test">Test</button>
+          <button class="etb-btn etb-stop" id="editor-stop">Stop</button>
+          <div class="live-preview" id="live-preview">
+            <span class="lp-icon" id="lp-icon"></span>
+            <span class="lp-label" id="lp-label">Button</span>
           </div>
         </div>
 
-        <!-- Right: Editor -->
-        <div class="panel-right" id="panel-right">
-          <div class="editor-empty" id="editor-empty">
-            <p>Select a button to edit</p>
+        <!-- Notes -->
+        <div class="editor-notes">
+          <textarea id="ed-notes" placeholder="Notes..." rows="2"></textarea>
+        </div>
+
+        <!-- Sub-tabs -->
+        <div class="sub-tabs">
+          <button class="sub-tab active" data-subtab="actions">Step 1</button>
+          <button class="sub-tab" data-subtab="style">Style</button>
+          <button class="sub-tab" data-subtab="feedbacks">Feedbacks</button>
+        </div>
+
+        <!-- Sub-tab: Actions -->
+        <div class="subtab-content subtab-active" id="subtab-actions">
+          <div class="st-section">
+            <div class="st-heading">Press actions</div>
+            <div id="actions-list"></div>
+            <div class="add-dropdown-wrap">
+              <select id="add-action-select" class="add-dropdown">
+                <option value="">+ Add action...</option>
+              </select>
+            </div>
           </div>
-          <div class="editor-form" id="editor-form" style="display:none;">
+        </div>
 
-            <!-- Preview -->
-            <div class="editor-section">
-              <div class="editor-section-title">Preview</div>
-              <div class="btn-preview-wrap">
-                <div class="btn-preview" id="btn-preview">
-                  <span class="btn-preview-icon" id="preview-icon"></span>
-                  <span class="btn-preview-label" id="preview-label">Button</span>
-                </div>
-              </div>
-              <div class="field-row">
-                <label>Label</label>
-                <input type="text" id="ed-label" placeholder="Button text" maxlength="20">
-              </div>
-              <div class="field-row">
-                <label>Color</label>
-                <div class="color-strip" id="ed-colors"></div>
-              </div>
-              <div class="field-row">
-                <label>Icon</label>
-                <div class="icon-strip" id="ed-icons"></div>
+        <!-- Sub-tab: Style -->
+        <div class="subtab-content" id="subtab-style">
+          <div class="style-preview-wrap">
+            <div class="style-preview" id="style-preview">
+              <span class="sp-icon" id="sp-icon"></span>
+              <span class="sp-label" id="sp-label">Button</span>
+            </div>
+          </div>
+          <div class="style-fields">
+            <div class="field-row">
+              <label>Label</label>
+              <input type="text" id="ed-label" placeholder="Button text" maxlength="20">
+            </div>
+            <div class="field-row">
+              <label>Icon</label>
+              <div class="icon-strip" id="ed-icons"></div>
+            </div>
+            <div class="field-row">
+              <label>Background Color</label>
+              <div class="color-strip" id="ed-colors"></div>
+            </div>
+            <div class="field-row">
+              <label>Text Color</label>
+              <div class="color-strip" id="ed-text-colors"></div>
+            </div>
+            <div class="field-row">
+              <label>Font Size</label>
+              <div class="stepper-row">
+                <button class="step-btn" id="font-down">&#8722;</button>
+                <input type="number" id="ed-fontsize" value="10" min="6" max="30">
+                <button class="step-btn" id="font-up">+</button>
               </div>
             </div>
+          </div>
+        </div>
 
-            <!-- Actions -->
-            <div class="editor-section">
-              <div class="editor-section-title">Actions <span class="section-hint">(on press)</span></div>
-              <div id="actions-list"></div>
-              <button class="add-btn" id="add-action">+ Add Action</button>
-            </div>
-
-            <!-- Feedbacks -->
-            <div class="editor-section">
-              <div class="editor-section-title">Feedbacks <span class="section-hint">(live state)</span></div>
-              <div id="feedbacks-list"></div>
-              <button class="add-btn" id="add-feedback">+ Add Feedback</button>
-              <p class="section-note">First matching rule sets the color. Otherwise button keeps base color.</p>
-            </div>
-
+        <!-- Sub-tab: Feedbacks -->
+        <div class="subtab-content" id="subtab-feedbacks">
+          <p class="fb-desc">Add feedbacks to change this button's style based on live OBS state.</p>
+          <div id="feedbacks-list"></div>
+          <div class="add-dropdown-wrap">
+            <select id="add-feedback-select" class="add-dropdown">
+              <option value="">+ Add feedback...</option>
+            </select>
           </div>
         </div>
 
       </div>
-    </section>
+    </div>
 
-    <!-- Pages Section -->
-    <section class="section" id="section-pages">
+    <!-- === TAB: Pages === -->
+    <div class="tab-content" id="tab-pages">
       <div class="pages-panel">
         <div class="pages-header">
-          <h2>Page Manager</h2>
+          <h3>Pages</h3>
           <button class="add-btn" id="add-page">+ Add Page</button>
         </div>
         <div id="pages-list"></div>
       </div>
-    </section>
+    </div>
 
-    <!-- Settings Section -->
-    <section class="section" id="section-settings">
-      <div class="settings-panel">
-        <h2>Settings</h2>
-        <div class="field-row">
-          <label>Grid Rows</label>
-          <input type="number" id="set-rows" min="1" max="20" value="4">
+    <!-- === TAB: Presets === -->
+    <div class="tab-content" id="tab-presets">
+      <div class="presets-panel">
+        <div class="presets-search">
+          <input type="text" id="preset-search" placeholder="Search presets...">
+          <button class="preset-clear" id="preset-clear">&times;</button>
         </div>
-        <div class="field-row">
-          <label>Grid Columns</label>
-          <input type="number" id="set-cols" min="1" max="20" value="8">
+        <div class="presets-info">
+          <strong>Drag and drop</strong> preset buttons into the grid on the left to instantly configure a tile.
         </div>
-        <div class="field-row">
-          <label>PIN Code</label>
-          <input type="text" id="set-pin" maxlength="8" placeholder="1234">
-        </div>
-        <button class="save-btn" id="save-settings">Save Settings</button>
+        <div id="presets-categories"></div>
       </div>
-    </section>
+    </div>
 
   </div>
 </div>

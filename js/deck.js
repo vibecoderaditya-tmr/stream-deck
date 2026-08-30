@@ -1,305 +1,564 @@
 /* =========================================================
-   OBS Remote Director — Deck Page Logic
+   OBS Remote Director — Deck Page (v2 Companion-style)
    ========================================================= */
-(function() {
+(function () {
   'use strict';
 
-  // ---- Firebase Init ----
+  /* ── Constants ─────────────────────────────────────────── */
+  const COLOR_HEX = {
+    default: '#3a3a3a', green: '#00c853', red: '#ff1744', blue: '#2979ff',
+    yellow: '#ffd600', purple: '#aa00ff', orange: '#ff6d00', cyan: '#00e5ff',
+    gray: '#555555', pink: '#f06292',
+  };
+
+  const ACTION_HINTS = {
+    set_scene: 'Program', set_preview_scene: 'Preview', transition: 'Take',
+    start_stream: 'Go Live', stop_stream: 'Stop', toggle_stream: 'Toggle',
+    start_record: 'Rec', stop_record: 'Stop', toggle_record: 'Toggle',
+    pause_record: 'Pause', resume_record: 'Resume',
+    start_virtual_cam: 'VCam', stop_virtual_cam: 'VCam', toggle_virtual_cam: 'VCam',
+    start_replay_buffer: 'Replay', stop_replay_buffer: 'Replay', save_replay: 'Save',
+    play_media: 'Play', pause_media: 'Pause', restart_media: 'Restart',
+    stop_media: 'Stop', previous_media: 'Prev', next_media: 'Next',
+    studio_mode: 'Studio', set_source_mute: 'Mute', toggle_source_mute: 'Mute',
+  };
+
+  /* ── Firebase ──────────────────────────────────────────── */
   firebase.initializeApp(FIREBASE_CONFIG);
   const db = firebase.database();
 
-  // ---- DOM ----
-  const authScreen   = document.getElementById('auth-screen');
-  const appScreen    = document.getElementById('app-screen');
-  const pinInput     = document.getElementById('pin-input');
-  const pinSubmit    = document.getElementById('pin-submit');
-  const authError    = document.getElementById('auth-error');
-  const pageTabsEl   = document.getElementById('page-tabs');
-  const buttonGrid   = document.getElementById('button-grid');
-  const dotObs       = document.getElementById('dot-obs');
-  const valObs       = document.getElementById('val-obs');
-  const dotStream    = document.getElementById('dot-stream');
-  const valStream    = document.getElementById('val-stream');
-  const dotRecord    = document.getElementById('dot-record');
-  const valRecord    = document.getElementById('val-record');
-  const dotFirebase  = document.getElementById('dot-firebase');
-  const valFirebase  = document.getElementById('val-firebase');
-  const valScene     = document.getElementById('val-scene');
+  /* ── DOM ───────────────────────────────────────────────── */
+  const $auth      = document.getElementById('auth-screen');
+  const $app       = document.getElementById('app-screen');
+  const $grid      = document.getElementById('dk-grid');
+  const $heading   = document.getElementById('dk-heading');
+  const $overlay   = document.getElementById('dk-overlay');
+  const $btnFS     = document.getElementById('btn-fullscreen');
+  const $btnCfg    = document.getElementById('btn-settings');
+  const $dkClose   = document.getElementById('dk-close');
 
-  // ---- State ----
+  /* ── State ─────────────────────────────────────────────── */
+  let pages     = {};
+  let buttons   = {};
+  let status    = {};
+  let gridRows  = 4;
+  let gridCols  = 8;
+
+  // View settings (from URL params)
+  let cfg = {
+    pages: [],
+    minCol: 0, maxCol: 99,
+    minRow: 0, maxRow: 99,
+    displayColumns: 0,
+    hideConfig: false,
+    hideFullscreen: false,
+    showHeadings: false,
+  };
+
   let currentPage = null;
-  let pages       = {};   // { pageId: { name, order } }
-  let buttons     = {};   // { pageId: { "row_col": { ... } } }
-  let status      = {};
-  let gridRows    = 4;
-  let gridCols    = 8;
+  let isFS = false;
+  let resizeTimer = null;
 
-  function safeKey(name) {
-    return String(name).replace(/\./g,'_').replace(/\$/g,'_').replace(/#/g,'_').replace(/\[/g,'_').replace(/\]/g,'_').replace(/\//g,'_');
+  /* ── URL Params ────────────────────────────────────────── */
+  function parseParams() {
+    const p = new URLSearchParams(location.search);
+    if (p.has('pages')) {
+      const raw = p.get('pages');
+      const result = [];
+      raw.split(',').forEach(part => {
+        const trimmed = part.trim();
+        if (trimmed.includes('..')) {
+          const [a, b] = trimmed.split('..').map(Number);
+          for (let i = a; i <= b; i++) result.push(i);
+        } else {
+          const n = parseInt(trimmed, 10);
+          if (!isNaN(n)) result.push(n);
+        }
+      });
+      cfg.pages = result;
+    }
+    cfg.minCol        = parseInt(p.get('minCol')) || 0;
+    cfg.maxCol        = parseInt(p.get('maxCol'));
+    if (isNaN(cfg.maxCol)) cfg.maxCol = 99;
+    cfg.minRow        = parseInt(p.get('minRow')) || 0;
+    cfg.maxRow        = parseInt(p.get('maxRow'));
+    if (isNaN(cfg.maxRow)) cfg.maxRow = 99;
+    cfg.displayColumns = parseInt(p.get('cols')) || 0;
+    cfg.hideConfig     = p.get('hideConfig') === 'true';
+    cfg.hideFullscreen = p.get('hideFullscreen') === 'true';
+    cfg.showHeadings   = p.get('showHeadings') === 'true';
   }
 
-  // ---- Auth ----
-  pinSubmit.addEventListener('click', doAuth);
-  pinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doAuth(); });
+  function writeParams() {
+    const p = new URLSearchParams();
+    if (cfg.pages.length) p.set('pages', cfg.pages.join(','));
+    if (cfg.minCol) p.set('minCol', cfg.minCol);
+    if (cfg.maxCol < 99) p.set('maxCol', cfg.maxCol);
+    if (cfg.minRow) p.set('minRow', cfg.minRow);
+    if (cfg.maxRow < 99) p.set('maxRow', cfg.maxRow);
+    if (cfg.displayColumns) p.set('cols', cfg.displayColumns);
+    if (cfg.hideConfig) p.set('hideConfig', 'true');
+    if (cfg.hideFullscreen) p.set('hideFullscreen', 'true');
+    if (cfg.showHeadings) p.set('showHeadings', 'true');
+    const qs = p.toString();
+    history.replaceState(null, '', qs ? '?' + qs : location.pathname);
+  }
+
+  /* ── Auth ──────────────────────────────────────────────── */
+  document.getElementById('pin-submit').addEventListener('click', doAuth);
+  document.getElementById('pin-input').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
 
   function doAuth() {
-    const pin = pinInput.value.trim();
+    const pin = document.getElementById('pin-input').value.trim();
     if (pin !== PIN_CODE) {
-      authError.textContent = 'Wrong PIN';
+      document.getElementById('auth-error').textContent = 'Wrong PIN';
       return;
     }
-    authError.textContent = '';
-    authScreen.style.display = 'none';
-    appScreen.classList.add('active');
+    document.getElementById('auth-error').textContent = '';
+    $auth.style.display = 'none';
+    $app.classList.add('active');
+    parseParams();
+    applySettings();
     startListeners();
   }
 
-  // ---- Listeners ----
+  /* ── Listeners ─────────────────────────────────────────── */
   function startListeners() {
-    db.ref('settings/grid').on('value', (snap) => {
+    db.ref('settings/grid').on('value', snap => {
       const g = snap.val();
       if (g) { gridRows = g.rows || 4; gridCols = g.cols || 8; }
       renderGrid();
-      updateButtonHighlights();
     });
 
-    db.ref('pages').on('value', (snap) => {
+    db.ref('pages').on('value', snap => {
       pages = snap.val() || {};
       if (!currentPage || !pages[currentPage]) {
-        const keys = Object.keys(pages);
-        currentPage = keys.length ? keys.sort((a, b) => (pages[a].order || 0) - (pages[b].order || 0))[0] : null;
+        const sorted = Object.keys(pages).sort((a, b) => (pages[a].order || 0) - (pages[b].order || 0));
+        currentPage = pickFirstPage(sorted);
       }
-      renderTabs();
       renderGrid();
-      updateButtonHighlights();
     });
 
-    db.ref('buttons').on('value', (snap) => {
+    db.ref('buttons').on('value', snap => {
       buttons = snap.val() || {};
       renderGrid();
-      updateButtonHighlights();
     });
 
-    db.ref('status').on('value', (snap) => {
+    db.ref('status').on('value', snap => {
       status = snap.val() || {};
-      updateStatusStrip();
-      updateButtonHighlights();
+      updateHighlights();
     });
 
-    db.ref('.info/connected').on('value', (snap) => {
-      const connected = snap.val();
-      dotFirebase.className = 'status-dot ' + (connected ? 'green' : 'red');
-      valFirebase.textContent = connected ? 'OK' : 'DOWN';
+    db.ref('.info/connected').on('value', snap => {
+      // Could show connection indicator if needed
+    });
+
+    db.ref('status/scenes').on('value', snap => {
+      window._scenes = snap.val() || [];
     });
   }
 
-  // ---- Status Strip ----
-  function updateStatusStrip() {
-    valScene.textContent = status.scene || '--';
-    if (status.streaming) {
-      dotStream.className = 'status-dot green';
-      valStream.textContent = 'LIVE';
-    } else {
-      dotStream.className = 'status-dot red';
-      valStream.textContent = 'OFF';
+  function pickFirstPage(sortedKeys) {
+    if (cfg.pages.length && sortedKeys.length) {
+      const ordered = cfg.pages
+        .map(n => sortedKeys.find((_, i) => i === n - 1))
+        .filter(Boolean);
+      if (ordered.length) return ordered[0];
     }
-    if (status.recording) {
-      dotRecord.className = status.paused ? 'status-dot yellow' : 'status-dot red';
-      valRecord.textContent = status.paused ? 'PAUSED' : 'REC';
-    } else {
-      dotRecord.className = 'status-dot red';
-      valRecord.textContent = 'OFF';
-    }
-    const connections = status.connections || {};
-    const bridgeKeys = Object.keys(connections);
-    if (bridgeKeys.length > 0) {
-      const first = connections[bridgeKeys[0]];
-      if (first && first.connected) {
-        dotObs.className = 'status-dot green';
-        valObs.textContent = 'Connected';
-      } else {
-        dotObs.className = 'status-dot red';
-        valObs.textContent = 'Disconnected';
-      }
-    } else {
-      dotObs.className = 'status-dot red';
-      valObs.textContent = 'No Bridge';
-    }
+    return sortedKeys[0] || null;
   }
 
-  // ---- Page Tabs ----
-  function renderTabs() {
-    pageTabsEl.innerHTML = '';
+  /* ── Settings ──────────────────────────────────────────── */
+  function applySettings() {
+    $btnFS.style.display  = cfg.hideFullscreen ? 'none' : '';
+    $btnCfg.style.display = cfg.hideConfig ? 'none' : '';
+    $heading.style.display = cfg.showHeadings ? '' : 'none';
+    writeParams();
+  }
+
+  /* ── Page Order ────────────────────────────────────────── */
+  function getPageOrder() {
     const sorted = Object.keys(pages).sort((a, b) => (pages[a].order || 0) - (pages[b].order || 0));
-    sorted.forEach((pid) => {
-      const tab = document.createElement('button');
-      tab.className = 'page-tab' + (pid === currentPage ? ' active' : '');
-      tab.textContent = pages[pid].name || pid;
-      tab.addEventListener('click', () => {
-        currentPage = pid;
-        renderTabs();
-        renderGrid();
-      });
-      pageTabsEl.appendChild(tab);
-    });
+    if (cfg.pages.length) {
+      return cfg.pages
+        .map(n => sorted.find((_, i) => i === n - 1))
+        .filter(Boolean);
+    }
+    return sorted;
   }
 
-  // ---- Button Grid ----
-  function renderGrid() {
-    buttonGrid.innerHTML = '';
-    const pageButtons = (currentPage && buttons[currentPage]) || {};
-    buttonGrid.style.setProperty('--cols', gridCols);
+  function totalPages() { return getPageOrder().length; }
+  function currentPageIndex() { return getPageOrder().indexOf(currentPage); }
 
-    for (let r = 0; r < gridRows; r++) {
-      for (let c = 0; c < gridCols; c++) {
+  /* ── Grid Rendering ────────────────────────────────────── */
+  function renderGrid() {
+    $grid.innerHTML = '';
+    if (!currentPage || !pages[currentPage]) return;
+
+    if (cfg.showHeadings) {
+      $heading.textContent = pages[currentPage].name || currentPage;
+    }
+
+    const pageBtns = (buttons[currentPage]) || {};
+    const minC = cfg.minCol, maxC = Math.min(cfg.maxCol, gridCols - 1);
+    const minR = cfg.minRow, maxR = Math.min(cfg.maxRow, gridRows - 1);
+    const visCols = maxC - minC + 1;
+    const visRows = maxR - minR + 1;
+
+    $grid.style.setProperty('--dk-cols', visCols);
+
+    for (let r = minR; r <= maxR; r++) {
+      for (let c = minC; c <= maxC; c++) {
         const key = r + '_' + c;
-        const cfg = pageButtons[key];
-        if (cfg && cfg.label) {
-          const btn = createDeckButton(cfg);
-          btn.dataset.row = r;
-          btn.dataset.col = c;
-          buttonGrid.appendChild(btn);
+        const cfg2 = pageBtns[key];
+        const div = document.createElement('div');
+
+        // Coordinate label (always top-left, faded)
+        const coord = document.createElement('span');
+        coord.className = 'dk-coord';
+        coord.textContent = `${r}/${c}`;
+        div.appendChild(coord);
+
+        if (cfg2 && cfg2.label) {
+          div.className = 'dk-tile dk-assigned';
+          div.style.background = COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+
+          if (cfg2.icon) {
+            const ico = document.createElement('span');
+            ico.className = 'dk-icon';
+            ico.textContent = cfg2.icon;
+            div.appendChild(ico);
+          }
+
+          const lbl = document.createElement('span');
+          lbl.className = 'dk-label';
+          lbl.textContent = cfg2.label;
+          if (cfg2.fontSize) lbl.style.fontSize = cfg2.fontSize + 'px';
+          div.appendChild(lbl);
+
+          // Tap to fire
+          div.addEventListener('click', () => fireActions(cfg2));
         } else {
-          const empty = document.createElement('div');
-          empty.className = 'deck-btn empty';
-          buttonGrid.appendChild(empty);
+          div.className = 'dk-tile dk-empty';
         }
+
+        div.dataset.key = key;
+        $grid.appendChild(div);
       }
     }
+
+    updateHighlights();
+    if (isFS) calcFit();
   }
 
-  function createDeckButton(cfg) {
-    const btn = document.createElement('button');
-    btn.className = 'deck-btn color-' + (cfg.color || 'default');
-
-    if (cfg.icon) {
-      const iconEl = document.createElement('span');
-      iconEl.className = 'btn-icon';
-      iconEl.textContent = cfg.icon;
-      btn.appendChild(iconEl);
-    }
-
-    const labelEl = document.createElement('span');
-    labelEl.className = 'btn-label';
-    labelEl.textContent = cfg.label || '';
-    btn.appendChild(labelEl);
-
-    btn.addEventListener('click', () => sendButtonActions(cfg));
-    return btn;
-  }
-
-  // ---- Send Actions ----
-  function sendButtonActions(cfg) {
-    const actions = cfg.actions || [];
+  /* ── Fire Actions ──────────────────────────────────────── */
+  function fireActions(btnCfg) {
+    const actions = btnCfg.actions || [];
     if (!actions.length) return;
     actions.forEach((act, i) => {
-      const delay = i * 500; // stagger by 500ms
       setTimeout(() => {
-        const cmd = {
-          action: act.type || act.action,
-          ts: Date.now(),
-        };
-        if (act.scene)      cmd.scene = act.scene;
-        if (act.source)     cmd.source = act.source;
-        if (act.text)       cmd.text = act.text;
-        if (act.url)        cmd.url = act.url;
-        if (act.hotkey)     cmd.hotkey = act.hotkey;
-        if (act.command)    cmd.command = act.command;
-        if (act.muted !== undefined)  cmd.muted = act.muted;
-        if (act.visible !== undefined) cmd.visible = act.visible;
-        if (act.locked !== undefined)  cmd.locked = act.locked;
+        const cmd = { action: act.type, ts: Date.now() };
+        Object.keys(act).forEach(k => { if (k !== 'type') cmd[k] = act[k]; });
         db.ref('commands/latest').set(cmd);
-      }, delay);
+      }, i * 500);
     });
   }
 
-  // ---- Update Button Highlights ----
-  function updateButtonHighlights() {
-    if (!currentPage) return;
-    const btns = buttonGrid.querySelectorAll('.deck-btn:not(.empty)');
-    btns.forEach((btn) => {
-      const row = parseInt(btn.dataset.row);
-      const col = parseInt(btn.dataset.col);
-      if (isNaN(row) || isNaN(col)) return;
-      const key = row + '_' + col;
-      const cfg = ((buttons[currentPage] || {})[key]) || {};
-      const actions = cfg.actions || [];
-      const feedbacks = cfg.feedbacks || [];
+  /* ── Feedback Highlights ───────────────────────────────── */
+  function safeKey(name) {
+    return String(name).replace(/[.$#\[\]/]/g, '_');
+  }
 
-      // Reset to base color
-      const allColorClasses = 'color-default color-green color-red color-yellow color-blue color-purple color-orange color-cyan color-pink color-gray';
-      allColorClasses.split(' ').forEach(c => btn.classList.remove(c));
-      btn.classList.remove('is-live');
-      btn.classList.add('color-' + (cfg.color || 'default'));
+  function updateHighlights() {
+    const tiles = $grid.querySelectorAll('.dk-tile.dk-assigned');
+    tiles.forEach(div => {
+      const key = div.dataset.key;
+      const cfg2 = (buttons[currentPage] || {})[key];
+      if (!cfg2) return;
 
-      // Custom feedback rules take priority — first match wins
-      let customMatched = false;
+      const actions  = cfg2.actions  || [];
+      const feedbacks = cfg2.feedbacks || [];
+      let matched = false;
+
+      // Custom feedbacks first
       for (const fb of feedbacks) {
-        const fieldKey = fb.field === 'custom' ? (fb.customField || '') : (fb.field || '');
-        const parts = fieldKey.split('.');
-        let val = status;
-        for (const p of parts) { val = val !== undefined && val !== null ? val[p] : undefined; }
+        const t = fb.type || '';
+        let match = false;
+        let color = fb.activeColor || 'green';
 
-        let condition = false;
-        const op = fb.op || 'eq';
-        const cmp = fb.compareValue || '';
+        if (t === 'scene_in_program') {
+          const s = fb.scene || (actions[0] && actions[0].scene) || '';
+          if (s && s === (status.programScene || status.scene || '')) match = true;
+        } else if (t === 'scene_in_preview') {
+          const s = fb.scene || (actions[0] && actions[0].scene) || '';
+          if (s && s === (status.previewScene || status.preview || '')) match = true;
+        } else if (t === 'scene_in_preview_program') {
+          const s = fb.scene || (actions[0] && actions[0].scene) || '';
+          const prog = status.programScene || status.scene || '';
+          const prev = status.previewScene || status.preview || '';
+          if (s && s === prog) { match = true; color = fb.activeColor || 'red'; }
+          else if (s && s === prev) { match = true; color = fb.activeColor2 || 'orange'; }
+        } else if (t === 'transition_in_progress') {
+          if (status.transitionInProgress) { match = true; color = fb.activeColor || 'yellow'; }
+        } else if (t === 'source_visible_in_program') {
+          const src = fb.source || '';
+          const prog = status.programScene || status.scene || '';
+          if (src && prog && status.sceneItems) {
+            const m = status.sceneItems[prog] || status.sceneItems[safeKey(prog)] || {};
+            if (m[src] === true || m[safeKey(src)] === true) match = true;
+          }
+        } else if (t === 'source_enabled_in_scene') {
+          const src = fb.source || '';
+          const scn = fb.scene || '';
+          if (src && scn && status.sceneItems) {
+            const m = status.sceneItems[scn] || status.sceneItems[safeKey(scn)] || {};
+            if (m[src] === true || m[safeKey(src)] === true) match = true;
+          }
+        } else if (t === 'source_active_in_preview') {
+          const src = fb.source || '';
+          const prev = status.previewScene || status.preview || '';
+          if (src && prev && status.sceneItems) {
+            const m = status.sceneItems[prev] || status.sceneItems[safeKey(prev)] || {};
+            if (m[src] === true || m[safeKey(src)] === true) match = true;
+          }
+        }
 
-        if (op === 'eq') condition = (String(val) === cmp);
-        else if (op === 'neq') condition = (String(val) !== cmp);
-        else if (op === 'true') condition = !!val;
-        else if (op === 'false') condition = (val === false || val === 'false' || val === undefined || val === null || val === '');
-        else if (op === 'contains') condition = String(val).includes(cmp);
-
-        if (condition) {
-          allColorClasses.split(' ').forEach(c => btn.classList.remove(c));
-          btn.classList.remove('is-live');
-          btn.classList.add('color-' + (fb.trueColor || 'green'));
-          customMatched = true;
+        if (match) {
+          div.style.background = COLOR_HEX[color] || COLOR_HEX.default;
+          matched = true;
           break;
         }
       }
 
-      // Built-in feedback only if no custom feedback matched
-      if (!customMatched && actions.length > 0) {
+      // Built-in action-based feedback (only if no custom feedback matched)
+      if (!matched && actions.length) {
         const a = actions[0];
-        const t = a.type || a.action || '';
-        if (t === 'set_scene' && a.scene === status.scene) {
-          btn.classList.add('is-live');
-        }
-        if (t === 'set_preview_scene' && a.scene === status.preview) {
-          btn.classList.add('color-blue');
-        }
-        if (t === 'start_stream' || t === 'stop_stream' || t === 'toggle_stream') {
-          if (status.streaming) btn.classList.add('is-live');
-        }
-        if (t === 'start_record' || t === 'stop_record' || t === 'toggle_record') {
-          if (status.recording) btn.classList.add('is-live');
-        }
-        if (t === 'pause_record' || t === 'resume_record') {
-          if (status.recording && status.paused) btn.classList.add('color-yellow');
-          else if (status.recording) btn.classList.add('is-live');
-        }
-        if (t === 'start_virtual_cam' || t === 'stop_virtual_cam' || t === 'toggle_virtual_cam') {
-          if (status.virtualcam) btn.classList.add('is-live');
-        }
-        if (t === 'start_replay_buffer' || t === 'stop_replay_buffer' || t === 'save_replay') {
-          if (status.replaybuffer) btn.classList.add('is-live');
-        }
-        if (t === 'set_source_mute' || t === 'toggle_source_mute') {
+        const t = a.type || '';
+        const prog = status.programScene || status.scene || '';
+        const prev = status.previewScene || status.preview || '';
+
+        if (t === 'set_scene' && a.scene && a.scene === prog) {
+          div.style.background = COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          div.classList.add('dk-live');
+        } else if (t === 'set_preview_scene' && a.scene && a.scene === prev) {
+          div.style.background = COLOR_HEX.blue;
+          div.classList.remove('dk-live');
+        } else if (t === 'start_stream' || t === 'stop_stream' || t === 'toggle_stream') {
+          div.style.background = status.streaming ? COLOR_HEX.green : COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          div.classList.toggle('dk-live', !!status.streaming);
+        } else if (t === 'start_record' || t === 'stop_record' || t === 'toggle_record') {
+          div.style.background = status.recording ? COLOR_HEX.red : COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          div.classList.toggle('dk-live', !!status.recording);
+        } else if (t === 'pause_record' || t === 'resume_record') {
+          if (status.recording && status.paused) div.style.background = COLOR_HEX.yellow;
+          else if (status.recording) div.style.background = COLOR_HEX.red;
+          else div.style.background = COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+        } else if (t === 'start_virtual_cam' || t === 'stop_virtual_cam' || t === 'toggle_virtual_cam') {
+          div.style.background = status.virtualcam ? COLOR_HEX.cyan : COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          div.classList.toggle('dk-live', !!status.virtualcam);
+        } else if (t === 'start_replay_buffer' || t === 'stop_replay_buffer' || t === 'save_replay') {
+          div.style.background = status.replaybuffer ? COLOR_HEX.purple : COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          div.classList.toggle('dk-live', !!status.replaybuffer);
+        } else if (t === 'transition' || t === 'transition_stinger') {
+          div.style.background = status.transitionInProgress ? COLOR_HEX.yellow : COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          div.classList.toggle('dk-live', !!status.transitionInProgress);
+        } else if (t === 'set_source_mute' || t === 'toggle_source_mute') {
           const src = a.source || '';
           if (src && status.mutes) {
             const muted = status.mutes[safeKey(src)];
-            if (muted !== undefined) {
-              btn.className = 'deck-btn color-' + (muted ? 'red' : 'green');
-              if (muted) btn.classList.add('is-live');
-            }
+            if (muted !== undefined) div.style.background = muted ? COLOR_HEX.red : COLOR_HEX.green;
+          } else {
+            div.style.background = COLOR_HEX[cfg2.color] || COLOR_HEX.default;
           }
+        } else {
+          div.style.background = COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          div.classList.remove('dk-live');
         }
-        if (t === 'transition' || t === 'transition_stinger') {
-          if (status.transitioning) btn.classList.add('color-yellow');
-        }
+      } else if (!matched) {
+        div.style.background = COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+        div.classList.remove('dk-live');
       }
     });
   }
+
+  /* ── Fullscreen ────────────────────────────────────────── */
+  $btnFS.addEventListener('click', toggleFullscreen);
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      const el = document.documentElement;
+      (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+    } else {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    }
+  }
+
+  document.addEventListener('fullscreenchange', onFSChange);
+  document.addEventListener('webkitfullscreenchange', onFSChange);
+
+  function onFSChange() {
+    isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    document.body.classList.toggle('dk-isfs', isFS);
+    if (isFS) calcFit();
+    else {
+      $grid.style.removeProperty('--dk-tile-w');
+      $grid.style.removeProperty('--dk-tile-h');
+    }
+  }
+
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { if (isFS) calcFit(); }, 100);
+  });
+
+  // Orientation change
+  screen.orientation?.addEventListener?.('change', () => {
+    setTimeout(() => { if (isFS) calcFit(); }, 200);
+  });
+
+  /* ── Fit-Content Calculation ───────────────────────────── */
+  function calcFit() {
+    const sw = window.innerWidth;
+    const sh = window.innerHeight;
+    const minTile = 60;
+
+    // Count visible tiles
+    const minC = cfg.minCol, maxC = Math.min(cfg.maxCol, gridCols - 1);
+    const minR = cfg.minRow, maxR = Math.min(cfg.maxRow, gridRows - 1);
+    const visCols = maxC - minC + 1;
+    const visRows = maxR - minR + 1;
+    const totalTiles = visCols * visRows;
+    if (!totalTiles) return;
+
+    let cols, rows;
+
+    if (cfg.displayColumns > 0) {
+      // Forced column count
+      cols = Math.min(cfg.displayColumns, visCols);
+      rows = Math.ceil(totalTiles / cols);
+    } else {
+      // Dynamic: find best fit
+      let bestCols = 1, bestScore = 0;
+      for (let c = 1; c <= visCols; c++) {
+        const r = Math.ceil(totalTiles / c);
+        const tw = sw / c;
+        const th = sh / r;
+        if (tw < minTile || th < minTile) continue;
+        const tile = Math.min(tw, th);
+        const ratio = Math.max(tw, th) / Math.min(tw, th);
+        // Prefer larger tiles, penalize extreme aspect ratios
+        const score = tile * (ratio < 2 ? 1 : 1 / ratio);
+        if (score > bestScore) { bestScore = score; bestCols = c; }
+      }
+      cols = bestCols;
+      rows = Math.ceil(totalTiles / cols);
+    }
+
+    const tw = Math.max(minTile, Math.floor(sw / cols));
+    const th = Math.max(minTile, Math.floor(sh / rows));
+
+    $grid.style.setProperty('--dk-tile-w', tw + 'px');
+    $grid.style.setProperty('--dk-tile-h', th + 'px');
+  }
+
+  /* ── Configure Dialog ──────────────────────────────────── */
+  $btnCfg.addEventListener('click', () => {
+    $overlay.classList.toggle('dk-open');
+    syncDialog();
+  });
+  $dkClose.addEventListener('click', () => $overlay.classList.remove('dk-open'));
+  $overlay.addEventListener('click', e => { if (e.target === $overlay) $overlay.classList.remove('dk-open'); });
+
+  function syncDialog() {
+    document.getElementById('cfg-pages').value = cfg.pages.length ? cfg.pages.join(',') : '';
+    document.getElementById('cfg-mincol').value = cfg.minCol;
+    document.getElementById('cfg-maxcol').value = cfg.maxCol >= 99 ? '' : cfg.maxCol;
+    document.getElementById('cfg-minrow').value = cfg.minRow;
+    document.getElementById('cfg-maxrow').value = cfg.maxRow >= 99 ? '' : cfg.maxRow;
+    document.getElementById('cfg-cols').value = cfg.displayColumns;
+    document.getElementById('cfg-hidecfg').checked = cfg.hideConfig;
+    document.getElementById('cfg-hidefs').checked = cfg.hideFullscreen;
+    document.getElementById('cfg-heading').checked = cfg.showHeadings;
+  }
+
+  // Pages input
+  document.getElementById('cfg-pages').addEventListener('input', e => {
+    const raw = e.target.value.trim();
+    if (!raw) { cfg.pages = []; }
+    else {
+      const result = [];
+      raw.split(',').forEach(part => {
+        const t = part.trim();
+        if (t.includes('..')) {
+          const [a, b] = t.split('..').map(Number);
+          for (let i = a; i <= b; i++) if (!isNaN(i)) result.push(i);
+        } else {
+          const n = parseInt(t, 10);
+          if (!isNaN(n)) result.push(n);
+        }
+      });
+      cfg.pages = result;
+    }
+    const sorted = Object.keys(pages).sort((a, b) => (pages[a].order || 0) - (pages[b].order || 0));
+    currentPage = pickFirstPage(sorted);
+    writeParams();
+    renderGrid();
+  });
+
+  // Stepper inputs
+  document.querySelectorAll('.dk-step').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const input = document.getElementById(btn.dataset.target);
+      const dir = parseInt(btn.dataset.dir);
+      const min = parseInt(input.min) || 0;
+      const max = parseInt(input.max) || 999;
+      input.value = Math.max(min, Math.min(max, parseInt(input.value || '0') + dir));
+      input.dispatchEvent(new Event('input'));
+    });
+  });
+
+  // Min/Max Column
+  document.getElementById('cfg-mincol').addEventListener('input', e => {
+    cfg.minCol = parseInt(e.target.value) || 0;
+    writeParams(); renderGrid();
+  });
+  document.getElementById('cfg-maxcol').addEventListener('input', e => {
+    cfg.maxCol = parseInt(e.target.value);
+    if (isNaN(cfg.maxCol) || cfg.maxCol < cfg.minCol) cfg.maxCol = 99;
+    writeParams(); renderGrid();
+  });
+  document.getElementById('cfg-minrow').addEventListener('input', e => {
+    cfg.minRow = parseInt(e.target.value) || 0;
+    writeParams(); renderGrid();
+  });
+  document.getElementById('cfg-maxrow').addEventListener('input', e => {
+    cfg.maxRow = parseInt(e.target.value);
+    if (isNaN(cfg.maxRow) || cfg.maxRow < cfg.minRow) cfg.maxRow = 99;
+    writeParams(); renderGrid();
+  });
+
+  // Display columns
+  document.getElementById('cfg-cols').addEventListener('input', e => {
+    cfg.displayColumns = parseInt(e.target.value) || 0;
+    writeParams(); renderGrid();
+    if (isFS) calcFit();
+  });
+
+  // Checkboxes
+  document.getElementById('cfg-hidecfg').addEventListener('change', e => {
+    cfg.hideConfig = e.target.checked;
+    $btnCfg.style.display = cfg.hideConfig ? 'none' : '';
+    writeParams();
+  });
+  document.getElementById('cfg-hidefs').addEventListener('change', e => {
+    cfg.hideFullscreen = e.target.checked;
+    $btnFS.style.display = cfg.hideFullscreen ? 'none' : '';
+    writeParams();
+  });
+  document.getElementById('cfg-heading').addEventListener('change', e => {
+    cfg.showHeadings = e.target.checked;
+    $heading.style.display = cfg.showHeadings ? '' : 'none';
+    writeParams();
+  });
 
 })();

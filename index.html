@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>OBS Remote Director</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="deck-body">
 
 <!-- ===== AUTH SCREEN ===== -->
 <div id="auth-screen">
@@ -22,50 +22,82 @@
 <!-- ===== APP SCREEN ===== -->
 <div id="app-screen">
 
-  <!-- Status Strip -->
-  <div class="status-strip">
-    <div class="status-item">
-      <span class="status-dot" id="dot-obs"></span>
-      <span class="status-label">OBS</span>
-      <span class="status-value" id="val-obs">--</span>
-    </div>
-    <div class="status-item">
-      <span class="status-label">Scene:</span>
-      <span class="status-value" id="val-scene">--</span>
-    </div>
-    <div class="status-item">
-      <span class="status-dot" id="dot-stream"></span>
-      <span class="status-label">Stream</span>
-      <span class="status-value" id="val-stream">OFF</span>
-    </div>
-    <div class="status-item">
-      <span class="status-dot" id="dot-record"></span>
-      <span class="status-label">Record</span>
-      <span class="status-value" id="val-record">OFF</span>
-    </div>
-    <div class="status-right">
-      <div class="status-item">
-        <span class="status-dot" id="dot-firebase"></span>
-        <span class="status-label">Firebase</span>
-        <span class="status-value" id="val-firebase">--</span>
-      </div>
-      <div class="status-item">
-        <a href="admin.html" style="color:var(--accent-cyan);text-decoration:none;font-size:12px;">&#9881; Admin</a>
-      </div>
-    </div>
-  </div>
+  <!-- Floating Icons -->
+  <button class="deck-icon-btn dk-fullscreen" id="btn-fullscreen" title="Fullscreen">&#9974;</button>
+  <button class="deck-icon-btn dk-settings" id="btn-settings" title="Settings">&#9881;</button>
 
-  <!-- Page Tabs -->
-  <div class="page-tabs" id="page-tabs"></div>
+  <!-- Page Heading (hidden by default) -->
+  <div class="dk-heading" id="dk-heading"></div>
 
   <!-- Button Grid -->
-  <div class="grid-container">
-    <div class="button-grid" id="button-grid"></div>
+  <div class="dk-grid" id="dk-grid"></div>
+
+  <!-- Configure Dialog Overlay -->
+  <div class="dk-overlay" id="dk-overlay">
+    <div class="dk-dialog">
+      <div class="dk-dialog-head">
+        <h3>Configure Buttons View</h3>
+        <button class="dk-close" id="dk-close">&times;</button>
+      </div>
+      <div class="dk-dialog-body">
+        <div class="dk-col">
+          <div class="dk-field">
+            <label>Pages</label>
+            <input type="text" id="cfg-pages" placeholder="1,3,5 or 1..6">
+            <div class="dk-hint">Use 1..6 for ranges, commas for multiple. Follows provided order.</div>
+          </div>
+          <div class="dk-field">
+            <label>Min Column</label>
+            <div class="dk-stepper">
+              <button class="dk-step" data-target="cfg-mincol" data-dir="-1">&minus;</button>
+              <input type="number" id="cfg-mincol" value="0" min="0">
+              <button class="dk-step" data-target="cfg-mincol" data-dir="1">+</button>
+            </div>
+          </div>
+          <div class="dk-field">
+            <label>Max Column</label>
+            <div class="dk-stepper">
+              <button class="dk-step" data-target="cfg-maxcol" data-dir="-1">&minus;</button>
+              <input type="number" id="cfg-maxcol" value="99" min="0">
+              <button class="dk-step" data-target="cfg-maxcol" data-dir="1">+</button>
+            </div>
+          </div>
+          <div class="dk-field">
+            <label>Min Row</label>
+            <div class="dk-stepper">
+              <button class="dk-step" data-target="cfg-minrow" data-dir="-1">&minus;</button>
+              <input type="number" id="cfg-minrow" value="0" min="0">
+              <button class="dk-step" data-target="cfg-minrow" data-dir="1">+</button>
+            </div>
+          </div>
+          <div class="dk-field">
+            <label>Max Row</label>
+            <div class="dk-stepper">
+              <button class="dk-step" data-target="cfg-maxrow" data-dir="-1">&minus;</button>
+              <input type="number" id="cfg-maxrow" value="99" min="0">
+              <button class="dk-step" data-target="cfg-maxrow" data-dir="1">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="dk-col">
+          <label class="dk-check"><input type="checkbox" id="cfg-hidecfg"> Hide configure button</label>
+          <label class="dk-check"><input type="checkbox" id="cfg-hidefs"> Hide fullscreen button</label>
+          <label class="dk-check"><input type="checkbox" id="cfg-heading"> Show page headings</label>
+          <div class="dk-field">
+            <label>Display Columns <span class="dk-hint">(0 = dynamic)</span></label>
+            <div class="dk-stepper">
+              <button class="dk-step" data-target="cfg-cols" data-dir="-1">&minus;</button>
+              <input type="number" id="cfg-cols" value="0" min="0" max="20">
+              <button class="dk-step" data-target="cfg-cols" data-dir="1">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
 </div>
 
-<!-- ===== SCRIPTS ===== -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="js/firebase-config.js"></script>
