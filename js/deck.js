@@ -60,6 +60,7 @@
       const g = snap.val();
       if (g) { gridRows = g.rows || 4; gridCols = g.cols || 8; }
       renderGrid();
+      updateButtonHighlights();
     });
 
     db.ref('pages').on('value', (snap) => {
@@ -70,11 +71,13 @@
       }
       renderTabs();
       renderGrid();
+      updateButtonHighlights();
     });
 
     db.ref('buttons').on('value', (snap) => {
       buttons = snap.val() || {};
       renderGrid();
+      updateButtonHighlights();
     });
 
     db.ref('status').on('value', (snap) => {
@@ -212,6 +215,7 @@
 
   // ---- Update Button Highlights ----
   function updateButtonHighlights() {
+    if (!currentPage) return;
     const btns = buttonGrid.querySelectorAll('.deck-btn:not(.empty)');
     btns.forEach((btn) => {
       const row = parseInt(btn.dataset.row);
@@ -228,8 +232,35 @@
       btn.classList.remove('is-live');
       btn.classList.add('color-' + (cfg.color || 'default'));
 
-      // Built-in feedback from first action
-      if (actions.length > 0) {
+      // Custom feedback rules take priority — first match wins
+      let customMatched = false;
+      for (const fb of feedbacks) {
+        const fieldKey = fb.field === 'custom' ? (fb.customField || '') : (fb.field || '');
+        const parts = fieldKey.split('.');
+        let val = status;
+        for (const p of parts) { val = val !== undefined && val !== null ? val[p] : undefined; }
+
+        let condition = false;
+        const op = fb.op || 'eq';
+        const cmp = fb.compareValue || '';
+
+        if (op === 'eq') condition = (String(val) === cmp);
+        else if (op === 'neq') condition = (String(val) !== cmp);
+        else if (op === 'true') condition = !!val;
+        else if (op === 'false') condition = (val === false || val === 'false' || val === undefined || val === null || val === '');
+        else if (op === 'contains') condition = String(val).includes(cmp);
+
+        if (condition) {
+          allColorClasses.split(' ').forEach(c => btn.classList.remove(c));
+          btn.classList.remove('is-live');
+          btn.classList.add('color-' + (fb.trueColor || 'green'));
+          customMatched = true;
+          break;
+        }
+      }
+
+      // Built-in feedback only if no custom feedback matched
+      if (!customMatched && actions.length > 0) {
         const a = actions[0];
         const t = a.type || a.action || '';
         if (t === 'set_scene' && a.scene === status.scene) {
@@ -268,34 +299,6 @@
           if (status.transitioning) btn.classList.add('color-yellow');
         }
       }
-
-      // Custom feedback rules — first match wins
-      let customMatched = false;
-      for (const fb of feedbacks) {
-        const fieldKey = fb.field === 'custom' ? fb.customField : fb.field;
-        const parts = (fieldKey || '').split('.');
-        let val = status;
-        for (const p of parts) { val = val ? val[p] : undefined; }
-
-        let condition = false;
-        const op = fb.op || 'eq';
-        const cmp = fb.compareValue || '';
-
-        if (op === 'eq') condition = (String(val) === cmp);
-        else if (op === 'neq') condition = (String(val) !== cmp);
-        else if (op === 'true') condition = !!val;
-        else if (op === 'false') condition = !val;
-        else if (op === 'contains') condition = String(val).includes(cmp);
-
-        if (condition) {
-          allColorClasses.split(' ').forEach(c => btn.classList.remove(c));
-          btn.classList.remove('is-live');
-          btn.classList.add('color-' + (fb.trueColor || 'green'));
-          customMatched = true;
-          break;
-        }
-      }
-      // If no feedback matched, button keeps base color (already set)
     });
   }
 
