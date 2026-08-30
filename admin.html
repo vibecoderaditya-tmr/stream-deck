@@ -181,6 +181,59 @@
     <label>Filter Name</label>
     <input type="text" id="ed-filter" placeholder="e.g. Color Correction">
 
+    <label>Custom Feedback</label>
+    <select id="ed-feedback-type">
+      <option value="">None</option>
+      <option value="scene_is_live">Green pulse when this scene is live</option>
+      <option value="scene_is_preview">Blue when this scene is preview</option>
+      <option value="streaming">Green pulse when streaming</option>
+      <option value="recording">Green pulse when recording</option>
+      <option value="paused">Yellow when recording paused</option>
+      <option value="virtualcam">Green pulse when virtual cam active</option>
+      <option value="replaybuffer">Green pulse when replay buffer active</option>
+      <option value="studio_mode">Green pulse when studio mode on</option>
+      <option value="muted">Red when input is muted</option>
+      <option value="unmuted">Green when input is unmuted</option>
+      <option value="custom_status">Custom status field</option>
+    </select>
+
+    <div id="feedback-custom-fields" style="display:none;">
+      <label>Status Field Name</label>
+      <input type="text" id="ed-feedback-field" placeholder="e.g. scene, streaming, mutes.Mic_Aux">
+
+      <label>Color when TRUE</label>
+      <select id="ed-feedback-true-color">
+        <option value="green">Green</option>
+        <option value="red">Red</option>
+        <option value="blue">Blue</option>
+        <option value="yellow">Yellow</option>
+        <option value="purple">Purple</option>
+        <option value="orange">Orange</option>
+        <option value="cyan">Cyan</option>
+        <option value="pink">Pink</option>
+      </select>
+
+      <label>Color when FALSE</label>
+      <select id="ed-feedback-false-color">
+        <option value="default">Default</option>
+        <option value="green">Green</option>
+        <option value="red">Red</option>
+        <option value="blue">Blue</option>
+        <option value="yellow">Yellow</option>
+        <option value="purple">Purple</option>
+        <option value="orange">Orange</option>
+        <option value="cyan">Cyan</option>
+        <option value="pink">Pink</option>
+        <option value="gray">Gray (dimmed)</option>
+      </select>
+
+      <label>Pulse animation?</label>
+      <select id="ed-feedback-pulse">
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+    </div>
+
     <div class="admin-actions">
       <button class="btn-save" id="btn-save">Save</button>
       <button class="btn-delete" id="btn-delete">Delete</button>

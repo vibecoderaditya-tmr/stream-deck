@@ -274,26 +274,89 @@
       const key = row + '_' + col;
       const cfg = ((buttons[currentPage] || {})[key]) || {};
 
-      // Remove old live classes
-      btn.classList.remove('is-live', 'color-green', 'color-red');
+      // Reset to original color
+      btn.classList.remove('is-live', 'color-green', 'color-red', 'color-yellow', 'color-blue', 'color-purple', 'color-orange', 'color-cyan', 'color-pink', 'color-gray');
       btn.classList.add('color-' + (cfg.color || 'default'));
 
-      if (cfg.action === 'SetCurrentProgramScene' && cfg.value === status.scene) {
+      // Built-in feedback
+      const action = cfg.action || '';
+      const value = cfg.value || '';
+
+      if (action === 'SetCurrentProgramScene' && value === status.scene) {
         btn.classList.add('is-live');
       }
-      if ((cfg.action === 'ToggleStream' || cfg.action === 'StartStream') && status.streaming) {
-        btn.classList.add('is-live');
+      if (action === 'SetCurrentPreviewScene' && value === status.preview) {
+        btn.classList.add('color-blue');
       }
-      if ((cfg.action === 'ToggleRecord' || cfg.action === 'StartRecord') && status.recording) {
-        btn.classList.add('is-live');
+      if (action === 'ToggleStream' || action === 'StartStream' || action === 'StopStream') {
+        if (status.streaming) btn.classList.add('is-live');
       }
-      if (cfg.action === 'SetInputMute' || cfg.action === 'ToggleInputMute') {
-        const inputName = cfg.input || cfg.value;
-        if (inputName && status.mutes && status.mutes[safeKey(inputName)] !== undefined) {
-          btn.className = 'deck-btn color-' + (status.mutes[safeKey(inputName)] ? 'red' : 'green');
-          if (status.mutes[safeKey(inputName)]) {
-            btn.classList.add('is-live');
+      if (action === 'ToggleRecord' || action === 'StartRecord' || action === 'StopRecord') {
+        if (status.recording) btn.classList.add('is-live');
+      }
+      if (action === 'PauseRecord' || action === 'ResumeRecord') {
+        if (status.recording && status.paused) btn.classList.add('color-yellow');
+        else if (status.recording) btn.classList.add('is-live');
+      }
+      if (action === 'ToggleVirtualCam' || action === 'StartVirtualCam' || action === 'StopVirtualCam') {
+        if (status.virtualcam) btn.classList.add('is-live');
+      }
+      if (action === 'StartReplayBuffer' || action === 'StopReplayBuffer' || action === 'SaveReplayBuffer') {
+        if (status.replaybuffer) btn.classList.add('is-live');
+      }
+      if (action === 'SetStudioModeEnabled') {
+        if (status.studio_mode) btn.classList.add('is-live');
+      }
+      if (action === 'SetInputMute' || action === 'ToggleInputMute') {
+        const inputName = cfg.input || value;
+        if (inputName && status.mutes) {
+          const muted = status.mutes[safeKey(inputName)];
+          if (muted !== undefined) {
+            btn.className = 'deck-btn color-' + (muted ? 'red' : 'green');
+            if (muted) btn.classList.add('is-live');
           }
+        }
+      }
+      if (action === 'TriggerStudioModeTransition' || action === 'TriggerTransition') {
+        if (status.transitioning) btn.classList.add('color-yellow');
+      }
+
+      // Custom feedback
+      const fb = cfg.feedback;
+      if (fb && fb.type) {
+        let condition = false;
+
+        if (fb.type === 'scene_is_live') condition = (status.scene === value);
+        else if (fb.type === 'scene_is_preview') condition = (status.preview === value);
+        else if (fb.type === 'streaming') condition = !!status.streaming;
+        else if (fb.type === 'recording') condition = !!status.recording;
+        else if (fb.type === 'paused') condition = !!status.paused;
+        else if (fb.type === 'virtualcam') condition = !!status.virtualcam;
+        else if (fb.type === 'replaybuffer') condition = !!status.replaybuffer;
+        else if (fb.type === 'studio_mode') condition = !!status.studio_mode;
+        else if (fb.type === 'muted') {
+          const inputName = cfg.input || value;
+          if (inputName && status.mutes) condition = !!status.mutes[safeKey(inputName)];
+        }
+        else if (fb.type === 'unmuted') {
+          const inputName = cfg.input || value;
+          if (inputName && status.mutes) condition = !status.mutes[safeKey(inputName)];
+        }
+        else if (fb.type === 'custom_status' && fb.field) {
+          const parts = fb.field.split('.');
+          let val = status;
+          for (const p of parts) { val = val ? val[p] : undefined; }
+          condition = !!val;
+        }
+
+        // Remove built-in classes, apply custom
+        btn.classList.remove('is-live', 'color-green', 'color-red', 'color-yellow', 'color-blue', 'color-purple', 'color-orange', 'color-cyan', 'color-pink', 'color-gray');
+
+        if (condition) {
+          btn.classList.add('color-' + (fb.trueColor || 'green'));
+          if (fb.pulse !== false) btn.classList.add('is-live');
+        } else {
+          btn.classList.add('color-' + (fb.falseColor || 'default'));
         }
       }
     });

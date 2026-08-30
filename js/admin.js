@@ -36,6 +36,12 @@
   const edScene   = document.getElementById('ed-scene');
   const edItem    = document.getElementById('ed-item');
   const edFilter  = document.getElementById('ed-filter');
+  const edFeedbackType = document.getElementById('ed-feedback-type');
+  const feedbackCustomFields = document.getElementById('feedback-custom-fields');
+  const edFeedbackField = document.getElementById('ed-feedback-field');
+  const edFeedbackTrueColor = document.getElementById('ed-feedback-true-color');
+  const edFeedbackFalseColor = document.getElementById('ed-feedback-false-color');
+  const edFeedbackPulse = document.getElementById('ed-feedback-pulse');
   const btnSave   = document.getElementById('btn-save');
   const btnDelete = document.getElementById('btn-delete');
   const btnClose  = document.getElementById('btn-close');
@@ -78,6 +84,11 @@
     buildIconGrid();
     startListeners();
   }
+
+  // Show/hide custom feedback fields
+  edFeedbackType.addEventListener('change', () => {
+    feedbackCustomFields.style.display = edFeedbackType.value === 'custom_status' ? '' : 'none';
+  });
 
   // ---- Grid Settings ----
   document.getElementById('grid-apply').addEventListener('click', () => {
@@ -323,6 +334,15 @@
     edItem.value   = cfg.item || '';
     edFilter.value = cfg.filter || '';
 
+    // Feedback fields
+    const fb = cfg.feedback || {};
+    edFeedbackType.value = fb.type || '';
+    feedbackCustomFields.style.display = fb.type === 'custom_status' ? '' : 'none';
+    edFeedbackField.value = fb.field || '';
+    edFeedbackTrueColor.value = fb.trueColor || 'green';
+    edFeedbackFalseColor.value = fb.falseColor || 'default';
+    edFeedbackPulse.value = fb.pulse !== false ? 'true' : 'false';
+
     // Select color
     document.querySelectorAll('.color-swatch').forEach((s) => {
       s.classList.toggle('selected', s.dataset.color === (cfg.color || 'default'));
@@ -347,6 +367,19 @@
     if (!editingKey) return;
     const selectedColor = document.querySelector('.color-swatch.selected');
     const selectedIcon  = document.querySelector('.icon-option.selected');
+
+    const feedbackType = edFeedbackType.value;
+    let feedback = null;
+    if (feedbackType) {
+      feedback = {
+        type: feedbackType,
+        field: edFeedbackField.value.trim(),
+        trueColor: edFeedbackTrueColor.value,
+        falseColor: edFeedbackFalseColor.value,
+        pulse: edFeedbackPulse.value === 'true',
+      };
+    }
+
     const data = {
       label:  edLabel.value.trim(),
       action: edAction.value,
@@ -357,6 +390,7 @@
       filter: edFilter.value.trim(),
       color:  selectedColor ? selectedColor.dataset.color : 'default',
       icon:   selectedIcon ? selectedIcon.dataset.icon : '',
+      feedback: feedback,
     };
     db.ref('buttons/' + currentPage + '/' + editingKey).set(data);
     closeEditor();
