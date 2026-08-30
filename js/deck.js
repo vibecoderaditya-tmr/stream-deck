@@ -323,31 +323,23 @@
 
       // Custom feedback
       const fb = cfg.feedback;
-      if (fb && fb.type) {
-        let condition = false;
+      if (fb && fb.type === 'builtin') {
+        // Already handled above by action-based logic
+      } else if (fb && fb.type === 'custom') {
+        const fieldKey = fb.field === 'custom' ? fb.customField : fb.field;
+        const parts = (fieldKey || '').split('.');
+        let val = status;
+        for (const p of parts) { val = val ? val[p] : undefined; }
 
-        if (fb.type === 'scene_is_live') condition = (status.scene === value);
-        else if (fb.type === 'scene_is_preview') condition = (status.preview === value);
-        else if (fb.type === 'streaming') condition = !!status.streaming;
-        else if (fb.type === 'recording') condition = !!status.recording;
-        else if (fb.type === 'paused') condition = !!status.paused;
-        else if (fb.type === 'virtualcam') condition = !!status.virtualcam;
-        else if (fb.type === 'replaybuffer') condition = !!status.replaybuffer;
-        else if (fb.type === 'studio_mode') condition = !!status.studio_mode;
-        else if (fb.type === 'muted') {
-          const inputName = cfg.input || value;
-          if (inputName && status.mutes) condition = !!status.mutes[safeKey(inputName)];
-        }
-        else if (fb.type === 'unmuted') {
-          const inputName = cfg.input || value;
-          if (inputName && status.mutes) condition = !status.mutes[safeKey(inputName)];
-        }
-        else if (fb.type === 'custom_status' && fb.field) {
-          const parts = fb.field.split('.');
-          let val = status;
-          for (const p of parts) { val = val ? val[p] : undefined; }
-          condition = !!val;
-        }
+        let condition = false;
+        const op = fb.op || 'eq';
+        const cmp = fb.compareValue || '';
+
+        if (op === 'eq') condition = (String(val) === cmp);
+        else if (op === 'neq') condition = (String(val) !== cmp);
+        else if (op === 'true') condition = !!val;
+        else if (op === 'false') condition = !val;
+        else if (op === 'contains') condition = String(val).includes(cmp);
 
         // Remove built-in classes, apply custom
         btn.classList.remove('is-live', 'color-green', 'color-red', 'color-yellow', 'color-blue', 'color-purple', 'color-orange', 'color-cyan', 'color-pink', 'color-gray');

@@ -37,11 +37,15 @@
   const edItem    = document.getElementById('ed-item');
   const edFilter  = document.getElementById('ed-filter');
   const edFeedbackType = document.getElementById('ed-feedback-type');
-  const feedbackCustomFields = document.getElementById('feedback-custom-fields');
-  const edFeedbackField = document.getElementById('ed-feedback-field');
-  const edFeedbackTrueColor = document.getElementById('ed-feedback-true-color');
-  const edFeedbackFalseColor = document.getElementById('ed-feedback-false-color');
-  const edFeedbackPulse = document.getElementById('ed-feedback-pulse');
+  const feedbackBuiltin = document.getElementById('feedback-builtin');
+  const feedbackCustom = document.getElementById('feedback-custom');
+  const edFbField = document.getElementById('ed-fb-field');
+  const fbCustomFieldWrap = document.getElementById('fb-custom-field-wrap');
+  const edFbCustomField = document.getElementById('ed-fb-custom-field');
+  const edFbOp = document.getElementById('ed-fb-op');
+  const fbValueWrap = document.getElementById('fb-value-wrap');
+  const edFbValue = document.getElementById('ed-fb-value');
+  const edFbPulse = document.getElementById('ed-fb-pulse');
   const btnSave   = document.getElementById('btn-save');
   const btnDelete = document.getElementById('btn-delete');
   const btnClose  = document.getElementById('btn-close');
@@ -87,8 +91,56 @@
 
   // Show/hide custom feedback fields
   edFeedbackType.addEventListener('change', () => {
-    feedbackCustomFields.style.display = edFeedbackType.value === 'custom_status' ? '' : 'none';
+    const t = edFeedbackType.value;
+    feedbackBuiltin.style.display = t === 'builtin' ? '' : 'none';
+    feedbackCustom.style.display = t === 'custom' ? '' : 'none';
   });
+
+  edFbField.addEventListener('change', () => {
+    fbCustomFieldWrap.style.display = edFbField.value === 'custom' ? '' : 'none';
+  });
+
+  edFbOp.addEventListener('change', () => {
+    const op = edFbOp.value;
+    fbValueWrap.style.display = (op === 'true' || op === 'false') ? 'none' : '';
+  });
+
+  let fbTrueColor = 'green';
+  let fbFalseColor = 'default';
+
+  function buildFbColorGrids() {
+    const trueGrid = document.getElementById('fb-true-colors');
+    const falseGrid = document.getElementById('fb-false-colors');
+    trueGrid.innerHTML = '';
+    falseGrid.innerHTML = '';
+    COLORS.forEach((c) => {
+      // True color swatch
+      const st = document.createElement('div');
+      st.className = 'color-swatch';
+      st.style.background = COLOR_HEX[c];
+      st.dataset.color = c;
+      if (c === fbTrueColor) st.classList.add('selected');
+      st.addEventListener('click', () => {
+        trueGrid.querySelectorAll('.color-swatch').forEach((s) => s.classList.remove('selected'));
+        st.classList.add('selected');
+        fbTrueColor = c;
+      });
+      trueGrid.appendChild(st);
+
+      // False color swatch
+      const sf = document.createElement('div');
+      sf.className = 'color-swatch';
+      sf.style.background = COLOR_HEX[c];
+      sf.dataset.color = c;
+      if (c === fbFalseColor) sf.classList.add('selected');
+      sf.addEventListener('click', () => {
+        falseGrid.querySelectorAll('.color-swatch').forEach((s) => s.classList.remove('selected'));
+        sf.classList.add('selected');
+        fbFalseColor = c;
+      });
+      falseGrid.appendChild(sf);
+    });
+  }
 
   // ---- Grid Settings ----
   document.getElementById('grid-apply').addEventListener('click', () => {
@@ -336,12 +388,29 @@
 
     // Feedback fields
     const fb = cfg.feedback || {};
-    edFeedbackType.value = fb.type || '';
-    feedbackCustomFields.style.display = fb.type === 'custom_status' ? '' : 'none';
-    edFeedbackField.value = fb.field || '';
-    edFeedbackTrueColor.value = fb.trueColor || 'green';
-    edFeedbackFalseColor.value = fb.falseColor || 'default';
-    edFeedbackPulse.value = fb.pulse !== false ? 'true' : 'false';
+    if (!fb.type) {
+      edFeedbackType.value = '';
+      feedbackBuiltin.style.display = 'none';
+      feedbackCustom.style.display = 'none';
+    } else if (fb.type === 'builtin') {
+      edFeedbackType.value = 'builtin';
+      feedbackBuiltin.style.display = '';
+      feedbackCustom.style.display = 'none';
+    } else if (fb.type === 'custom') {
+      edFeedbackType.value = 'custom';
+      feedbackBuiltin.style.display = 'none';
+      feedbackCustom.style.display = '';
+      edFbField.value = fb.field || 'scene';
+      fbCustomFieldWrap.style.display = edFbField.value === 'custom' ? '' : 'none';
+      edFbCustomField.value = fb.customField || '';
+      edFbOp.value = fb.op || 'eq';
+      fbValueWrap.style.display = (fb.op === 'true' || fb.op === 'false') ? 'none' : '';
+      edFbValue.value = fb.compareValue || '';
+      fbTrueColor = fb.trueColor || 'green';
+      fbFalseColor = fb.falseColor || 'default';
+      edFbPulse.value = fb.pulse !== false ? 'true' : 'false';
+      buildFbColorGrids();
+    }
 
     // Select color
     document.querySelectorAll('.color-swatch').forEach((s) => {
@@ -370,13 +439,18 @@
 
     const feedbackType = edFeedbackType.value;
     let feedback = null;
-    if (feedbackType) {
+    if (feedbackType === 'builtin') {
+      feedback = { type: 'builtin' };
+    } else if (feedbackType === 'custom') {
       feedback = {
-        type: feedbackType,
-        field: edFeedbackField.value.trim(),
-        trueColor: edFeedbackTrueColor.value,
-        falseColor: edFeedbackFalseColor.value,
-        pulse: edFeedbackPulse.value === 'true',
+        type: 'custom',
+        field: edFbField.value,
+        customField: edFbCustomField.value.trim(),
+        op: edFbOp.value,
+        compareValue: edFbValue.value.trim(),
+        trueColor: fbTrueColor,
+        falseColor: fbFalseColor,
+        pulse: edFbPulse.value === 'true',
       };
     }
 

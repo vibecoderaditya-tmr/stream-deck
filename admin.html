@@ -184,51 +184,56 @@
     <label>Custom Feedback</label>
     <select id="ed-feedback-type">
       <option value="">None</option>
-      <option value="scene_is_live">Green pulse when this scene is live</option>
-      <option value="scene_is_preview">Blue when this scene is preview</option>
-      <option value="streaming">Green pulse when streaming</option>
-      <option value="recording">Green pulse when recording</option>
-      <option value="paused">Yellow when recording paused</option>
-      <option value="virtualcam">Green pulse when virtual cam active</option>
-      <option value="replaybuffer">Green pulse when replay buffer active</option>
-      <option value="studio_mode">Green pulse when studio mode on</option>
-      <option value="muted">Red when input is muted</option>
-      <option value="unmuted">Green when input is unmuted</option>
-      <option value="custom_status">Custom status field</option>
+      <option value="builtin">Built-in (auto from action)</option>
+      <option value="custom">Custom Rule</option>
     </select>
 
-    <div id="feedback-custom-fields" style="display:none;">
-      <label>Status Field Name</label>
-      <input type="text" id="ed-feedback-field" placeholder="e.g. scene, streaming, mutes.Mic_Aux">
+    <div id="feedback-builtin" style="display:none;">
+      <p style="font-size:11px;color:var(--text-secondary);margin:4px 0;">Button color changes automatically based on its action (scene live, stream active, muted, etc.)</p>
+    </div>
 
-      <label>Color when TRUE</label>
-      <select id="ed-feedback-true-color">
-        <option value="green">Green</option>
-        <option value="red">Red</option>
-        <option value="blue">Blue</option>
-        <option value="yellow">Yellow</option>
-        <option value="purple">Purple</option>
-        <option value="orange">Orange</option>
-        <option value="cyan">Cyan</option>
-        <option value="pink">Pink</option>
+    <div id="feedback-custom" style="display:none;">
+      <label>Status Field</label>
+      <select id="ed-fb-field">
+        <option value="scene">Current Program Scene</option>
+        <option value="preview">Current Preview Scene</option>
+        <option value="streaming">Is Streaming</option>
+        <option value="recording">Is Recording</option>
+        <option value="paused">Is Paused</option>
+        <option value="virtualcam">Virtual Cam Active</option>
+        <option value="replaybuffer">Replay Buffer Active</option>
+        <option value="studio_mode">Studio Mode On</option>
+        <option value="transitioning">Transition In Progress</option>
+        <option value="custom">Custom field...</option>
       </select>
 
-      <label>Color when FALSE</label>
-      <select id="ed-feedback-false-color">
-        <option value="default">Default</option>
-        <option value="green">Green</option>
-        <option value="red">Red</option>
-        <option value="blue">Blue</option>
-        <option value="yellow">Yellow</option>
-        <option value="purple">Purple</option>
-        <option value="orange">Orange</option>
-        <option value="cyan">Cyan</option>
-        <option value="pink">Pink</option>
-        <option value="gray">Gray (dimmed)</option>
+      <div id="fb-custom-field-wrap" style="display:none;">
+        <label>Custom Field Path</label>
+        <input type="text" id="ed-fb-custom-field" placeholder="e.g. mutes.Mic_Aux">
+      </div>
+
+      <label>Condition</label>
+      <select id="ed-fb-op">
+        <option value="eq">Equals</option>
+        <option value="neq">Not Equals</option>
+        <option value="true">Is True</option>
+        <option value="false">Is False</option>
+        <option value="contains">Contains</option>
       </select>
 
-      <label>Pulse animation?</label>
-      <select id="ed-feedback-pulse">
+      <div id="fb-value-wrap">
+        <label>Compare Value</label>
+        <input type="text" id="ed-fb-value" placeholder="e.g. Scene 2, true, false">
+      </div>
+
+      <label>Background Color When TRUE</label>
+      <div class="color-grid" id="fb-true-colors"></div>
+
+      <label>Background Color When FALSE</label>
+      <div class="color-grid" id="fb-false-colors"></div>
+
+      <label>Show pulse animation when true?</label>
+      <select id="ed-fb-pulse">
         <option value="true">Yes</option>
         <option value="false">No</option>
       </select>
