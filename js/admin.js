@@ -60,6 +60,9 @@
   let editingKey  = null;
   let gridRows    = 4;
   let gridCols    = 8;
+  let clipboard   = null;  // copied button config
+  let cutSource   = null;  // { page, key } for cut operation
+  let ctxTarget   = null;  // { row, col } right-click target
 
   // ---- Auth ----
   pinSubmit.addEventListener('click', doAuth);
@@ -196,9 +199,114 @@
         }
 
         btn.addEventListener('click', () => openEditor(r, c));
+        btn.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          ctxTarget = { row: r, col: c };
+          showContextMenu(e.pageX, e.pageY, r, c);
+        });
         buttonGrid.appendChild(btn);
       }
     }
+  }
+
+  // ---- Context Menu ----
+  const ctxMenu = document.getElementById('ctx-menu');
+
+  function showContextMenu(x, y, row, col) {
+    const key = row + '_' + col;
+    const cfg = ((buttons[currentPage] || {})[key]) || null;
+    const hasBtn = cfg && cfg.label;
+
+    ctxMenu.querySelectorAll('.ctx-item').forEach((item) => {
+      const action = item.dataset.action;
+      item.style.display = 'none';
+      if (action === 'copy' && hasBtn) item.style.display = '';
+      if (action === 'cut' && hasBtn) item.style.display = '';
+      if (action === 'paste' && clipboard) item.style.display = '';
+      if (action === 'duplicate' && hasBtn) item.style.display = '';
+      if (action === 'delete' && hasBtn) item.style.display = '';
+    });
+
+    ctxMenu.style.left = x + 'px';
+    ctxMenu.style.top = y + 'px';
+    ctxMenu.classList.remove('hidden');
+  }
+
+  function hideContextMenu() {
+    ctxMenu.classList.add('hidden');
+  }
+
+  document.addEventListener('click', hideContextMenu);
+
+  ctxMenu.querySelectorAll('.ctx-item').forEach((item) => {
+    item.addEventListener('click', () => {
+      const action = item.dataset.action;
+      if (!ctxTarget) return;
+      const key = ctxTarget.row + '_' + ctxTarget.col;
+      const pageButtons = buttons[currentPage] || {};
+      const cfg = pageButtons[key] || null;
+
+      if (action === 'copy') {
+        clipboard = JSON.parse(JSON.stringify(cfg));
+        cutSource = null;
+        flashButton(key, 'Copied!');
+      }
+
+      if (action === 'cut') {
+        clipboard = JSON.parse(JSON.stringify(cfg));
+        cutSource = { page: currentPage, key: key };
+        flashButton(key, 'Cut');
+      }
+
+      if (action === 'paste' && clipboard) {
+        const pasteCfg = JSON.parse(JSON.stringify(clipboard));
+        db.ref('buttons/' + currentPage + '/' + key).set(pasteCfg);
+        if (cutSource && cutSource.page === currentPage) {
+          db.ref('buttons/' + cutSource.page + '/' + cutSource.key).remove();
+          cutSource = null;
+        }
+        clipboard = null;
+      }
+
+      if (action === 'duplicate' && cfg) {
+        const nextKey = findNextEmpty();
+        if (nextKey) {
+          const dupCfg = JSON.parse(JSON.stringify(cfg));
+          db.ref('buttons/' + currentPage + '/' + nextKey).set(dupCfg);
+          flashButton(key, 'Duplicated');
+        }
+      }
+
+      if (action === 'delete') {
+        if (confirm('Delete this button?')) {
+          db.ref('buttons/' + currentPage + '/' + key).remove();
+        }
+      }
+
+      hideContextMenu();
+    });
+  });
+
+  function findNextEmpty() {
+    const pageButtons = buttons[currentPage] || {};
+    for (let r = 0; r < gridRows; r++) {
+      for (let c = 0; c < gridCols; c++) {
+        const k = r + '_' + c;
+        if (!pageButtons[k] || !pageButtons[k].label) return k;
+      }
+    }
+    return null;
+  }
+
+  function flashButton(key, msg) {
+    const [r, c] = key.split('_').map(Number);
+    const idx = r * gridCols + c;
+    const btn = buttonGrid.children[idx];
+    if (!btn) return;
+    const orig = btn.style.outline;
+    btn.style.outline = '2px solid var(--accent-cyan)';
+    btn.style.outlineOffset = '-2px';
+    setTimeout(() => { btn.style.outline = orig; }, 600);
   }
 
   // ---- Color Grid ----

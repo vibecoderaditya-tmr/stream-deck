@@ -402,6 +402,31 @@ body {
 /* ---- Utility ---- */
 .hidden { display: none !important; }
 
+/* ---- Context Menu ---- */
+.ctx-menu {
+  position: fixed;
+  z-index: 200;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 160px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+}
+
+.ctx-item {
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.ctx-item:hover { background: var(--bg-button); }
+.ctx-danger { color: var(--accent-red); }
+.ctx-danger:hover { background: rgba(255,23,68,0.15); }
+.ctx-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
 /* ---- Responsive ---- */
 @media (max-width: 800px) {
   :root { --button-w: 90px; --button-h: 70px; }
