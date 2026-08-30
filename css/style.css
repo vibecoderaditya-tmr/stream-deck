@@ -66,9 +66,10 @@ body {
 #app-screen.active { display: flex; flex-direction: column; }
 
 /* ===== LEFT PANEL ===== */
-.admin-layout.active { flex-direction: row; }
+.admin-layout.active { flex-direction: row !important; }
 .left-panel {
-  width: 520px; min-width: 400px; display: flex; flex-direction: column;
+  width: 45%; min-width: 320px; max-width: 560px;
+  display: flex; flex-direction: column;
   border-right: 1px solid var(--border); background: var(--bg-dark);
 }
 .left-header { padding: 10px 12px 6px; }
@@ -81,26 +82,29 @@ body {
 }
 .left-hint { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
 
-/* Page Nav */
+/* Page Nav — consistent sizing */
 .page-nav {
   display: flex; align-items: center; gap: 4px;
   padding: 6px 12px; border-bottom: 1px solid var(--border);
 }
 .pn-btn {
-  width: 26px; height: 26px; border: 1px solid var(--border);
-  border-radius: 3px; background: transparent; color: var(--text-secondary);
+  height: 28px; min-width: 28px; padding: 0 6px;
+  border: 1px solid var(--border); border-radius: 4px;
+  background: transparent; color: var(--text-secondary);
   cursor: pointer; font-size: 12px; display: flex; align-items: center;
   justify-content: center;
 }
 .pn-btn:hover { background: var(--bg-button); color: var(--text-primary); }
 .pn-select {
-  padding: 3px 6px; border: 1px solid var(--border); border-radius: 3px;
-  background: var(--bg-input); color: var(--text-primary); font-size: 12px;
+  height: 28px; padding: 3px 8px; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--bg-input);
+  color: var(--text-primary); font-size: 12px;
 }
 
-/* Grid */
+/* Grid — fills available space */
 .grid-scroll {
-  flex: 1; overflow: auto; padding: 10px; display: flex; justify-content: center;
+  flex: 1; overflow: auto; padding: 10px; display: flex;
+  justify-content: center; align-content: start;
 }
 .grid-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
 .grid-scroll::-webkit-scrollbar-track { background: var(--bg-dark); }
@@ -162,20 +166,21 @@ body {
 .deck-btn.c-gray    { background: #2a2a2a; color: #888; border-color: #555; }
 .deck-btn.c-pink    { background: #3d0a1e; color: #fce4ec; border-color: #f06292; }
 
-/* Grid Toolbar */
+/* Grid Toolbar — consistent neutral styling */
 .grid-toolbar {
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 3px;
   padding: 6px 12px; border-top: 1px solid var(--border);
   background: var(--bg-panel);
 }
 .gt-btn {
-  width: 28px; height: 28px; border: 1px solid var(--border);
-  border-radius: 3px; background: transparent; color: var(--text-secondary);
-  cursor: pointer; font-size: 13px; display: flex; align-items: center;
-  justify-content: center;
+  width: 30px; height: 30px; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--bg-surface);
+  color: var(--text-secondary); cursor: pointer; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.1s, color 0.1s;
 }
 .gt-btn:hover { background: var(--bg-button); color: var(--text-primary); }
-.gt-btn.gt-del:hover { border-color: var(--accent-red); color: var(--accent-red); }
+.gt-btn:active { background: var(--border); }
 .gt-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
 
 /* Help Box */
@@ -188,24 +193,24 @@ body {
 /* ===== RIGHT PANEL ===== */
 .right-panel {
   flex: 1; display: flex; flex-direction: column; overflow: hidden;
-  background: var(--bg-panel);
+  background: var(--bg-panel); min-width: 0;
 }
 
-/* Top Tabs */
+/* Top Tabs — proper tab styling at top of right panel */
 .top-tabs {
   display: flex; border-bottom: 2px solid var(--border);
-  background: var(--bg-surface);
+  background: var(--bg-surface); flex-shrink: 0;
 }
 .top-tab {
-  flex: 1; padding: 8px 10px; border: none; background: transparent;
-  color: var(--text-secondary); cursor: pointer; font-size: 12px;
+  flex: 1; padding: 10px 12px; border: none; background: transparent;
+  color: var(--text-dim); cursor: pointer; font-size: 12px;
   font-weight: 500; display: flex; align-items: center; justify-content: center;
-  gap: 4px; border-bottom: 2px solid transparent; margin-bottom: -2px;
-  transition: all 0.1s;
+  gap: 5px; border-bottom: 2px solid transparent; margin-bottom: -2px;
+  transition: color 0.1s, border-color 0.1s;
 }
-.top-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
+.top-tab:hover { color: var(--text-secondary); background: rgba(255,255,255,0.02); }
 .top-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-.tab-icon { font-size: 14px; }
+.tab-icon { font-size: 13px; }
 
 /* Tab Content */
 .tab-content { display: none; flex: 1; overflow-y: auto; }
@@ -239,10 +244,10 @@ body {
 
 .editor-topbar {
   display: flex; align-items: center; gap: 6px;
-  padding: 8px 12px; border-bottom: 1px solid var(--border);
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
 }
 .etb-btn {
-  padding: 4px 12px; border: 1px solid var(--border); border-radius: 3px;
+  padding: 5px 14px; border: 1px solid var(--border); border-radius: 4px;
   background: transparent; color: var(--text-secondary); cursor: pointer;
   font-size: 11px; font-weight: 500;
 }
@@ -256,6 +261,7 @@ body {
   background: #3a3a3a; border: 1px solid #555;
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 2px;
+  margin-right: 4px;
 }
 .lp-icon { font-size: 14px; }
 .lp-label { font-size: 7px; font-weight: 600; text-transform: uppercase; }
@@ -268,17 +274,18 @@ body {
 }
 .editor-notes textarea:focus { border-color: var(--accent); }
 
-/* Sub-tabs */
+/* Sub-tabs — more contrast between active/inactive */
 .sub-tabs {
   display: flex; border-bottom: 1px solid var(--border);
-  background: var(--bg-surface); padding: 0 8px;
+  background: var(--bg-surface); padding: 0 12px;
 }
 .sub-tab {
-  padding: 7px 14px; border: none; background: transparent;
-  color: var(--text-secondary); cursor: pointer; font-size: 12px;
+  padding: 8px 18px; border: none; background: transparent;
+  color: var(--text-dim); cursor: pointer; font-size: 12px;
   border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color 0.1s;
 }
-.sub-tab:hover { color: var(--text-primary); }
+.sub-tab:hover { color: var(--text-secondary); }
 .sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
 .subtab-content { display: none; flex: 1; overflow-y: auto; padding: 10px 12px; }
@@ -491,13 +498,14 @@ body {
   background: rgba(17,17,17,0.9); pointer-events: none;
 }
 
-/* Edge-to-edge grid */
+/* Edge-to-edge grid with subtle dividers */
 .dk-grid {
   display: grid;
   grid-template-columns: repeat(var(--dk-cols, 8), 1fr);
   grid-auto-rows: 1fr;
   width: 100vw; height: 100vh;
-  gap: 0;
+  gap: 1px;
+  background: #111;
 }
 
 /* Tiles */
@@ -505,23 +513,24 @@ body {
   position: relative;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: none;
   cursor: pointer;
   user-select: none;
   overflow: hidden;
   min-width: 0; min-height: 0;
   transition: filter 0.1s;
+  background: #2a2a2a;
 }
 .dk-tile:active { filter: brightness(1.2); }
 
 /* Coordinate label */
 .dk-coord {
   position: absolute; top: 3px; left: 4px;
-  font-size: 8px; color: rgba(255,255,255,0.2);
+  font-size: 8px; color: rgba(255,255,255,0.15);
   pointer-events: none; line-height: 1;
 }
 
-/* Assigned tile */
+/* Assigned tile — neutral dark grey default */
 .dk-assigned { color: #fff; }
 .dk-icon {
   font-size: 1.8em; line-height: 1;
@@ -537,7 +546,7 @@ body {
   max-width: 90%;
 }
 
-/* Empty tile */
+/* Empty tile — near-black */
 .dk-empty { background: #1a1a1a; cursor: default; }
 
 /* Live pulse */

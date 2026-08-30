@@ -200,8 +200,12 @@
     }
 
     const pageBtns = (buttons[currentPage]) || {};
-    const minC = cfg.minCol, maxC = Math.min(cfg.maxCol, gridCols - 1);
-    const minR = cfg.minRow, maxR = Math.min(cfg.maxRow, gridRows - 1);
+    // If max is at default (99), clamp to Firebase grid size
+    // If user explicitly set a value, use it directly
+    const minC = cfg.minCol;
+    const maxC = cfg.maxCol >= 99 ? gridCols - 1 : cfg.maxCol;
+    const minR = cfg.minRow;
+    const maxR = cfg.maxRow >= 99 ? gridRows - 1 : cfg.maxRow;
     const visCols = maxC - minC + 1;
     const visRows = maxR - minR + 1;
 
@@ -221,7 +225,8 @@
 
         if (cfg2 && cfg2.label) {
           div.className = 'dk-tile dk-assigned';
-          div.style.background = COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          // Default: neutral dark grey — color is earned through feedback only
+          div.style.background = '#2a2a2a';
 
           if (cfg2.icon) {
             const ico = document.createElement('span');
@@ -331,6 +336,7 @@
       }
 
       // Built-in action-based feedback (only if no custom feedback matched)
+      // Color is only applied when the action is ACTIVE; otherwise neutral grey
       if (!matched && actions.length) {
         const a = actions[0];
         const t = a.type || '';
@@ -338,44 +344,47 @@
         const prev = status.previewScene || status.preview || '';
 
         if (t === 'set_scene' && a.scene && a.scene === prog) {
-          div.style.background = COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          div.style.background = COLOR_HEX.red;
           div.classList.add('dk-live');
         } else if (t === 'set_preview_scene' && a.scene && a.scene === prev) {
           div.style.background = COLOR_HEX.blue;
           div.classList.remove('dk-live');
         } else if (t === 'start_stream' || t === 'stop_stream' || t === 'toggle_stream') {
-          div.style.background = status.streaming ? COLOR_HEX.green : COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          div.style.background = status.streaming ? COLOR_HEX.green : '#2a2a2a';
           div.classList.toggle('dk-live', !!status.streaming);
         } else if (t === 'start_record' || t === 'stop_record' || t === 'toggle_record') {
-          div.style.background = status.recording ? COLOR_HEX.red : COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          div.style.background = status.recording ? COLOR_HEX.red : '#2a2a2a';
           div.classList.toggle('dk-live', !!status.recording);
         } else if (t === 'pause_record' || t === 'resume_record') {
           if (status.recording && status.paused) div.style.background = COLOR_HEX.yellow;
           else if (status.recording) div.style.background = COLOR_HEX.red;
-          else div.style.background = COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          else div.style.background = '#2a2a2a';
         } else if (t === 'start_virtual_cam' || t === 'stop_virtual_cam' || t === 'toggle_virtual_cam') {
-          div.style.background = status.virtualcam ? COLOR_HEX.cyan : COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          div.style.background = status.virtualcam ? COLOR_HEX.cyan : '#2a2a2a';
           div.classList.toggle('dk-live', !!status.virtualcam);
         } else if (t === 'start_replay_buffer' || t === 'stop_replay_buffer' || t === 'save_replay') {
-          div.style.background = status.replaybuffer ? COLOR_HEX.purple : COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          div.style.background = status.replaybuffer ? COLOR_HEX.purple : '#2a2a2a';
           div.classList.toggle('dk-live', !!status.replaybuffer);
         } else if (t === 'transition' || t === 'transition_stinger') {
-          div.style.background = status.transitionInProgress ? COLOR_HEX.yellow : COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          div.style.background = status.transitionInProgress ? COLOR_HEX.yellow : '#2a2a2a';
           div.classList.toggle('dk-live', !!status.transitionInProgress);
         } else if (t === 'set_source_mute' || t === 'toggle_source_mute') {
           const src = a.source || '';
           if (src && status.mutes) {
             const muted = status.mutes[safeKey(src)];
             if (muted !== undefined) div.style.background = muted ? COLOR_HEX.red : COLOR_HEX.green;
+            else div.style.background = '#2a2a2a';
           } else {
-            div.style.background = COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+            div.style.background = '#2a2a2a';
           }
         } else {
-          div.style.background = COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+          // No active state to reflect — stay neutral
+          div.style.background = '#2a2a2a';
           div.classList.remove('dk-live');
         }
       } else if (!matched) {
-        div.style.background = COLOR_HEX[cfg2.color] || COLOR_HEX.default;
+        // No feedback and no matching action — neutral dark grey
+        div.style.background = '#2a2a2a';
         div.classList.remove('dk-live');
       }
     });
@@ -422,22 +431,20 @@
     const sh = window.innerHeight;
     const minTile = 60;
 
-    // Count visible tiles
-    const minC = cfg.minCol, maxC = Math.min(cfg.maxCol, gridCols - 1);
-    const minR = cfg.minRow, maxR = Math.min(cfg.maxRow, gridRows - 1);
-    const visCols = maxC - minC + 1;
-    const visRows = maxR - minR + 1;
+    // Use config values — clamp defaults to Firebase grid, explicit values stay as-is
+    const effMaxC = cfg.maxCol >= 99 ? gridCols - 1 : cfg.maxCol;
+    const effMaxR = cfg.maxRow >= 99 ? gridRows - 1 : cfg.maxRow;
+    const visCols = effMaxC - cfg.minCol + 1;
+    const visRows = effMaxR - cfg.minRow + 1;
     const totalTiles = visCols * visRows;
     if (!totalTiles) return;
 
     let cols, rows;
 
     if (cfg.displayColumns > 0) {
-      // Forced column count
       cols = Math.min(cfg.displayColumns, visCols);
       rows = Math.ceil(totalTiles / cols);
     } else {
-      // Dynamic: find best fit
       let bestCols = 1, bestScore = 0;
       for (let c = 1; c <= visCols; c++) {
         const r = Math.ceil(totalTiles / c);
@@ -446,7 +453,6 @@
         if (tw < minTile || th < minTile) continue;
         const tile = Math.min(tw, th);
         const ratio = Math.max(tw, th) / Math.min(tw, th);
-        // Prefer larger tiles, penalize extreme aspect ratios
         const score = tile * (ratio < 2 ? 1 : 1 / ratio);
         if (score > bestScore) { bestScore = score; bestCols = c; }
       }
