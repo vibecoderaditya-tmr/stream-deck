@@ -325,31 +325,33 @@
       const fb = cfg.feedback;
       if (fb && fb.type === 'builtin') {
         // Already handled above by action-based logic
-      } else if (fb && fb.type === 'custom') {
-        const fieldKey = fb.field === 'custom' ? fb.customField : fb.field;
-        const parts = (fieldKey || '').split('.');
-        let val = status;
-        for (const p of parts) { val = val ? val[p] : undefined; }
+      } else if (fb && fb.type === 'custom' && fb.rules) {
+        let matched = false;
+        for (const rule of fb.rules) {
+          const fieldKey = rule.field === 'custom' ? rule.customField : rule.field;
+          const parts = (fieldKey || '').split('.');
+          let val = status;
+          for (const p of parts) { val = val ? val[p] : undefined; }
 
-        let condition = false;
-        const op = fb.op || 'eq';
-        const cmp = fb.compareValue || '';
+          let condition = false;
+          const op = rule.op || 'eq';
+          const cmp = rule.compareValue || '';
 
-        if (op === 'eq') condition = (String(val) === cmp);
-        else if (op === 'neq') condition = (String(val) !== cmp);
-        else if (op === 'true') condition = !!val;
-        else if (op === 'false') condition = !val;
-        else if (op === 'contains') condition = String(val).includes(cmp);
+          if (op === 'eq') condition = (String(val) === cmp);
+          else if (op === 'neq') condition = (String(val) !== cmp);
+          else if (op === 'true') condition = !!val;
+          else if (op === 'false') condition = !val;
+          else if (op === 'contains') condition = String(val).includes(cmp);
 
-        // Remove built-in classes, apply custom
-        btn.classList.remove('is-live', 'color-green', 'color-red', 'color-yellow', 'color-blue', 'color-purple', 'color-orange', 'color-cyan', 'color-pink', 'color-gray');
-
-        if (condition) {
-          btn.classList.add('color-' + (fb.trueColor || 'green'));
-          if (fb.pulse !== false) btn.classList.add('is-live');
-        } else {
-          btn.classList.add('color-' + (fb.falseColor || 'default'));
+          if (condition) {
+            btn.classList.remove('is-live', 'color-green', 'color-red', 'color-yellow', 'color-blue', 'color-purple', 'color-orange', 'color-cyan', 'color-pink', 'color-gray');
+            btn.classList.add('color-' + (rule.trueColor || 'green'));
+            if (rule.pulse !== false) btn.classList.add('is-live');
+            matched = true;
+            break;
+          }
         }
+        // If no rule matched, button keeps its base color (already set above)
       }
     });
   }

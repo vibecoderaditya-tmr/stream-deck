@@ -39,13 +39,8 @@
   const edFeedbackType = document.getElementById('ed-feedback-type');
   const feedbackBuiltin = document.getElementById('feedback-builtin');
   const feedbackCustom = document.getElementById('feedback-custom');
-  const edFbField = document.getElementById('ed-fb-field');
-  const fbCustomFieldWrap = document.getElementById('fb-custom-field-wrap');
-  const edFbCustomField = document.getElementById('ed-fb-custom-field');
-  const edFbOp = document.getElementById('ed-fb-op');
-  const fbValueWrap = document.getElementById('fb-value-wrap');
-  const edFbValue = document.getElementById('ed-fb-value');
-  const edFbPulse = document.getElementById('ed-fb-pulse');
+  const fbRulesEl = document.getElementById('fb-rules');
+  const fbAddRule = document.getElementById('fb-add-rule');
   const btnSave   = document.getElementById('btn-save');
   const btnDelete = document.getElementById('btn-delete');
   const btnClose  = document.getElementById('btn-close');
@@ -96,50 +91,108 @@
     feedbackCustom.style.display = t === 'custom' ? '' : 'none';
   });
 
-  edFbField.addEventListener('change', () => {
-    fbCustomFieldWrap.style.display = edFbField.value === 'custom' ? '' : 'none';
-  });
+  const FB_FIELDS = [
+    { v: 'scene', t: 'Program Scene' },
+    { v: 'preview', t: 'Preview Scene' },
+    { v: 'streaming', t: 'Is Streaming' },
+    { v: 'recording', t: 'Is Recording' },
+    { v: 'paused', t: 'Is Paused' },
+    { v: 'virtualcam', t: 'Virtual Cam Active' },
+    { v: 'replaybuffer', t: 'Replay Buffer Active' },
+    { v: 'studio_mode', t: 'Studio Mode On' },
+    { v: 'transitioning', t: 'Transition In Progress' },
+    { v: 'custom', t: 'Custom field...' },
+  ];
 
-  edFbOp.addEventListener('change', () => {
-    const op = edFbOp.value;
-    fbValueWrap.style.display = (op === 'true' || op === 'false') ? 'none' : '';
-  });
+  let fbRuleCount = 0;
 
-  let fbTrueColor = 'green';
-  let fbFalseColor = 'default';
+  function addFbRule(rule) {
+    rule = rule || {};
+    const id = fbRuleCount++;
+    const div = document.createElement('div');
+    div.className = 'fb-rule';
+    div.style.cssText = 'border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px;position:relative;';
+    div.dataset.idx = id;
 
-  function buildFbColorGrids() {
-    const trueGrid = document.getElementById('fb-true-colors');
-    const falseGrid = document.getElementById('fb-false-colors');
-    trueGrid.innerHTML = '';
-    falseGrid.innerHTML = '';
-    COLORS.forEach((c) => {
-      // True color swatch
-      const st = document.createElement('div');
-      st.className = 'color-swatch';
-      st.style.background = COLOR_HEX[c];
-      st.dataset.color = c;
-      if (c === fbTrueColor) st.classList.add('selected');
-      st.addEventListener('click', () => {
-        trueGrid.querySelectorAll('.color-swatch').forEach((s) => s.classList.remove('selected'));
-        st.classList.add('selected');
-        fbTrueColor = c;
-      });
-      trueGrid.appendChild(st);
-
-      // False color swatch
-      const sf = document.createElement('div');
-      sf.className = 'color-swatch';
-      sf.style.background = COLOR_HEX[c];
-      sf.dataset.color = c;
-      if (c === fbFalseColor) sf.classList.add('selected');
-      sf.addEventListener('click', () => {
-        falseGrid.querySelectorAll('.color-swatch').forEach((s) => s.classList.remove('selected'));
-        sf.classList.add('selected');
-        fbFalseColor = c;
-      });
-      falseGrid.appendChild(sf);
+    let fieldOpts = '';
+    FB_FIELDS.forEach(f => {
+      const sel = (rule.field || 'scene') === f.v ? ' selected' : '';
+      fieldOpts += `<option value="${f.v}"${sel}>${f.t}</option>`;
     });
+
+    div.innerHTML = `
+      <div style="display:flex;gap:4px;margin-bottom:6px;">
+        <select class="fb-field" style="flex:1;padding:4px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:11px;">${fieldOpts}</select>
+        <select class="fb-op" style="width:80px;padding:4px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:11px;">
+          <option value="eq"${(rule.op||'eq')==='eq'?' selected':''}>Equals</option>
+          <option value="neq"${rule.op==='neq'?' selected':''}>Not Equals</option>
+          <option value="true"${rule.op==='true'?' selected':''}>Is True</option>
+          <option value="false"${rule.op==='false'?' selected':''}>Is False</option>
+          <option value="contains"${rule.op==='contains'?' selected':''}>Contains</option>
+        </select>
+      </div>
+      <div class="fb-custom-wrap" style="display:${(rule.field||'scene')==='custom'?'':'none'};margin-bottom:6px;">
+        <input class="fb-custom-field" type="text" value="${rule.customField||''}" placeholder="e.g. mutes.Mic_Aux" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:11px;">
+      </div>
+      <div class="fb-val-wrap" style="display:${(rule.op||'eq')==='true'||(rule.op||'eq')==='false'?'none':''};margin-bottom:6px;">
+        <input class="fb-value" type="text" value="${rule.compareValue||''}" placeholder="e.g. Scene 2" style="width:100%;padding:4px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:11px;">
+      </div>
+      <div class="fb-colors" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;"></div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:10px;color:var(--text-secondary);margin:0;">Pulse</label>
+        <select class="fb-pulse" style="padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);color:var(--text-primary);font-size:11px;">
+          <option value="true"${rule.pulse!==false?' selected':''}>Yes</option>
+          <option value="false"${rule.pulse===false?' selected':''}>No</option>
+        </select>
+        <button class="fb-remove" style="margin-left:auto;padding:2px 8px;border:1px solid var(--accent-red);border-radius:4px;background:transparent;color:var(--accent-red);cursor:pointer;font-size:11px;">Remove</button>
+      </div>
+    `;
+
+    // Build color swatches
+    const colorsEl = div.querySelector('.fb-colors');
+    const selectedTrueColor = rule.trueColor || 'green';
+    COLORS.forEach((c) => {
+      const sw = document.createElement('div');
+      sw.className = 'color-swatch' + (c === selectedTrueColor ? ' selected' : '');
+      sw.style.cssText = 'width:22px;height:22px;border-radius:4px;cursor:pointer;border:2px solid transparent;';
+      sw.style.background = COLOR_HEX[c];
+      sw.dataset.color = c;
+      sw.addEventListener('click', () => {
+        colorsEl.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        sw.classList.add('selected');
+      });
+      colorsEl.appendChild(sw);
+    });
+
+    // Event listeners
+    div.querySelector('.fb-field').addEventListener('change', (e) => {
+      div.querySelector('.fb-custom-wrap').style.display = e.target.value === 'custom' ? '' : 'none';
+    });
+    div.querySelector('.fb-op').addEventListener('change', (e) => {
+      const op = e.target.value;
+      div.querySelector('.fb-val-wrap').style.display = (op === 'true' || op === 'false') ? 'none' : '';
+    });
+    div.querySelector('.fb-remove').addEventListener('click', () => div.remove());
+
+    fbRulesEl.appendChild(div);
+  }
+
+  fbAddRule.addEventListener('click', () => addFbRule());
+
+  function getFbRules() {
+    const rules = [];
+    fbRulesEl.querySelectorAll('.fb-rule').forEach((div) => {
+      const selColor = div.querySelector('.fb-colors .color-swatch.selected');
+      rules.push({
+        field: div.querySelector('.fb-field').value,
+        customField: div.querySelector('.fb-custom-field').value.trim(),
+        op: div.querySelector('.fb-op').value,
+        compareValue: div.querySelector('.fb-value').value.trim(),
+        trueColor: selColor ? selColor.dataset.color : 'green',
+        pulse: div.querySelector('.fb-pulse').value === 'true',
+      });
+    });
+    return rules;
   }
 
   // ---- Grid Settings ----
@@ -388,6 +441,8 @@
 
     // Feedback fields
     const fb = cfg.feedback || {};
+    fbRulesEl.innerHTML = '';
+    fbRuleCount = 0;
     if (!fb.type) {
       edFeedbackType.value = '';
       feedbackBuiltin.style.display = 'none';
@@ -400,16 +455,7 @@
       edFeedbackType.value = 'custom';
       feedbackBuiltin.style.display = 'none';
       feedbackCustom.style.display = '';
-      edFbField.value = fb.field || 'scene';
-      fbCustomFieldWrap.style.display = edFbField.value === 'custom' ? '' : 'none';
-      edFbCustomField.value = fb.customField || '';
-      edFbOp.value = fb.op || 'eq';
-      fbValueWrap.style.display = (fb.op === 'true' || fb.op === 'false') ? 'none' : '';
-      edFbValue.value = fb.compareValue || '';
-      fbTrueColor = fb.trueColor || 'green';
-      fbFalseColor = fb.falseColor || 'default';
-      edFbPulse.value = fb.pulse !== false ? 'true' : 'false';
-      buildFbColorGrids();
+      (fb.rules || []).forEach(r => addFbRule(r));
     }
 
     // Select color
@@ -442,16 +488,7 @@
     if (feedbackType === 'builtin') {
       feedback = { type: 'builtin' };
     } else if (feedbackType === 'custom') {
-      feedback = {
-        type: 'custom',
-        field: edFbField.value,
-        customField: edFbCustomField.value.trim(),
-        op: edFbOp.value,
-        compareValue: edFbValue.value.trim(),
-        trueColor: fbTrueColor,
-        falseColor: fbFalseColor,
-        pulse: edFbPulse.value === 'true',
-      };
+      feedback = { type: 'custom', rules: getFbRules() };
     }
 
     const data = {
